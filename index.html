@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>M5Atom CAN Remote (v11)</title>
+    <title>M5Atom CAN Remote (v12)</title>
     <script>
         function log(msg) { console.log(msg); }
         window.onerror = function (msg, url, line) { console.error(msg); return false; };
@@ -325,7 +325,7 @@
                     if ((val & mask) !== 0) val &= ~mask; else val |= mask;
                     input.value = val;
                     updateVisuals(idx);
-                    sendManual();
+                    sendManual(idx);
                 }
             } else {
                 // MOMENTARY MODE
@@ -340,7 +340,7 @@
                 if (newVal !== val) {
                     input.value = newVal;
                     updateVisuals(idx);
-                    sendManual();
+                    sendManual(idx);
                 }
             }
         }
@@ -384,19 +384,19 @@
         }
         try {
             els.gBit.addEventListener('change', updateSwitches);
-            document.getElementById('btn-send-manual').addEventListener('click', sendManual);
+            document.getElementById('btn-send-manual').addEventListener('click', () => sendManual(8));
             document.getElementById('btn-on-custom').addEventListener('click', () => sendAdv(true));
             document.getElementById('btn-off-custom').addEventListener('click', () => sendAdv(false));
             load();
         } catch (e) { }
-        async function sendManual() {
+        async function sendManual(idx = 8) {
             if (!window.characteristic) return;
             let hex = '';
             for (let i = 0; i < 8; i++) {
                 let v = parseInt(document.getElementById('b' + i).value) || 0;
                 hex += v.toString(16).padStart(2, '0');
             }
-            const cmd = `CAN:${els.id.value}:${hex}`;
+            const cmd = `CAN:${idx}:${els.id.value}:${hex}`;
             try { await window.characteristic.writeValue(new TextEncoder().encode(cmd)); } catch (e) { }
         }
         async function sendAdv(isOn) {
@@ -408,7 +408,7 @@
             if (isOn) val |= mask; else val &= ~mask;
             input.value = val;
             updateSwitches();
-            sendManual();
+            sendManual(tB);
         }
     </script>
 </body>
