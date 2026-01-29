@@ -1,10 +1,10 @@
-<!-- Version: 3.3 -->
+<!-- Version: 3.4 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>M5Atom CAN Remote (v3.3 10Hz)</title>
+    <title>M5Atom CAN Remote (v3.4 Debug)</title>
     <script>
         function log(msg) { console.log(msg); }
         window.onerror = function (msg, url, line) { console.error(msg); return false; };
@@ -77,6 +77,12 @@
             font-size: 0.9rem;
             color: #aaa;
             margin-top: 5px;
+        }
+        .tx-stat {
+            display: block;
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 4px;
         }
         .status.connected {
             color: var(--success-color);
@@ -228,8 +234,9 @@
 </head>
 <body>
     <div class="header">
-        <h2 style="margin:5px 0; color:var(--primary-color);">M5Atom CAN Remote v3.0 (Binary)</h2>
+        <h2 style="margin:5px 0; color:var(--primary-color);">M5Atom CAN Remote (v3.4 Debug)</h2>
         <div id="status" class="status disconnected">Disconnected</div>
+        <div class="tx-stat">App Tx Count: <span id="tx-count">0</span></div>
     </div>
     <div id="connect-container" style="width:100%; max-width:500px;">
         <button id="btn-connect" class="connect-btn" onclick="startBle()">CONNECT DEVICE</button>
@@ -384,11 +391,14 @@
             } catch (e) { }
         }
         let isDirty = false;
+        let txCount = 0;
         function requestUpdate() { isDirty = true; }
         setInterval(() => {
             if (isDirty && window.characteristic) {
                 sendManual();
                 isDirty = false;
+                txCount++;
+                document.getElementById('tx-count').textContent = txCount;
             }
         }, 100); // 10Hz
         try {
