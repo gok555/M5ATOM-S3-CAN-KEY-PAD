@@ -1,9 +1,10 @@
+<!-- Version: 3.1 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>M5Atom CAN Remote (v12)</title>
+    <title>M5Atom CAN Remote (v3.1 Binary)</title>
     <script>
         function log(msg) { console.log(msg); }
         window.onerror = function (msg, url, line) { console.error(msg); return false; };
@@ -227,7 +228,7 @@
 </head>
 <body>
     <div class="header">
-        <h2 style="margin:5px 0; color:var(--primary-color);">M5Atom CAN Remote</h2>
+        <h2 style="margin:5px 0; color:var(--primary-color);">M5Atom CAN Remote v3.0 (Binary)</h2>
         <div id="status" class="status disconnected">Disconnected</div>
     </div>
     <div id="connect-container" style="width:100%; max-width:500px;">
@@ -391,13 +392,16 @@
         } catch (e) { }
         async function sendManual(idx = 8) {
             if (!window.characteristic) return;
-            let hex = '';
+            // Binary Protocol: [ID_HI, ID_LO, D0, D1, D2, D3, D4, D5, D6, D7]
+            let buf = new Uint8Array(10);
+            let id = parseInt(els.id.value) || 0;
+            buf[0] = (id >> 8) & 0xFF;
+            buf[1] = id & 0xFF;
             for (let i = 0; i < 8; i++) {
                 let v = parseInt(document.getElementById('b' + i).value) || 0;
-                hex += v.toString(16).padStart(2, '0');
+                buf[2 + i] = v;
             }
-            const cmd = `CAN:${idx}:${els.id.value}:${hex}`;
-            try { await window.characteristic.writeValue(new TextEncoder().encode(cmd)); } catch (e) { }
+            try { await window.characteristic.writeValue(buf); } catch (e) { console.log(e); }
         }
         async function sendAdv(isOn) {
             let tB = parseInt(els.advByte.value);
@@ -413,5 +417,3 @@
     </script>
 </body>
 </html>
-
-
