@@ -1,142 +1,28 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>M5 Relay Remote</title>
-    <style>
-        :root {
-            --primary: #00ff88;
-            --off: #444;
-            --bg: #1a1a1a;
-            --text: #fff;
-        }
-        body {
-            background-color: var(--bg);
-            color: var(--text);
-            font-family: 'Segoe UI', sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            overflow: hidden;
-        }
-        h2 { margin-bottom: 20px; font-weight: 300; letter-spacing: 1px; }
-        
-        /* Connect Button */
-        #btn-connect {
-            padding: 15px 30px;
-            font-size: 1.2rem;
-            border: 2px solid var(--primary);
-            background: transparent;
-            color: var(--primary);
-            border-radius: 50px;
-            cursor: pointer;
-            transition: 0.3s;
-        }
-        #btn-connect:active { background: var(--primary); color: #000; }
-        /* Relay Toggle Switch */
-        .switch-container {
-            display: none; /* Hidden until connected */
-            flex-direction: column;
-            align-items: center;
-        }
-        
-        .toggle-btn {
-            position: relative;
-            width: 200px;
-            height: 200px;
-            border-radius: 50%;
-            background: var(--off);
-            border: 5px solid #333;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 3rem;
-            font-weight: bold;
-            color: #888;
-            cursor: pointer;
-            transition: 0.3s;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-        }
-        
-        .toggle-btn.on {
-            background: var(--primary);
-            box-shadow: 0 0 50px var(--primary);
-            color: #000;
-            border-color: #fff;
-        }
-        .status { margin-top: 30px; color: #888; font-size: 0.9rem; }
-    </style>
-</head>
-<body>
-    <h2>M5 Relay Remote</h2>
-    <button id="btn-connect" onclick="startBle()">CONNECT</button>
-    <div id="ui-layer" class="switch-container">
-        <div id="btn-relay" class="toggle-btn" onclick="toggleRelay()">OFF</div>
-        <div class="status">Tap to Toggle</div>
-    </div>
-    <script>
-        // --- CONFIG ---
-        const S_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-        const TX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // We WRITE to this (RX on Device)
-        let device, server, service, characteristic;
-        let isRelayOn = false;
-        async function startBle() {
-            try {
-                device = await navigator.bluetooth.requestDevice({
-                    filters: [{ namePrefix: "M5" }],
-                    optionalServices: [S_UUID]
-                });
-                
-                device.addEventListener('gattserverdisconnected', onDisconnected);
-                
-                server = await device.gatt.connect();
-                service = await server.getPrimaryService(S_UUID);
-                characteristic = await service.getCharacteristic(TX_UUID);
-                // UI Update
-                document.getElementById('btn-connect').style.display = 'none';
-                document.getElementById('ui-layer').style.display = 'flex';
-                
-            } catch (e) {
-                alert("Connection Failed: " + e);
-            }
-        }
-        function onDisconnected() {
-            document.getElementById('btn-connect').style.display = 'block';
-            document.getElementById('ui-layer').style.display = 'none';
-            document.getElementById('btn-relay').className = 'toggle-btn';
-            document.getElementById('btn-relay').innerText = 'OFF';
-            isRelayOn = false;
-        }
-        async function toggleRelay() {
-            if (!characteristic) return;
-            isRelayOn = !isRelayOn;
-            updateUI();
-            // Protocol: [Byte 0 = 1 for ON, 0 for OFF] + 9 zeroes
-            let data = new Uint8Array(10);
-            data[0] = isRelayOn ? 1 : 0;
-            
-            try {
-                await characteristic.writeValue(data);
-            } catch (e) {
-                console.error(e);
-            }
-        }
-        function updateUI() {
-            const btn = document.getElementById('btn-relay');
-            if (isRelayOn) {
-                btn.className = 'toggle-btn on';
-                btn.innerText = 'ON';
-            } else {
-                btn.className = 'toggle-btn';
-                btn.innerText = 'OFF';
-            }
-        }
-    </script>
-</body>
-</html>
+<button onclick="connect()">Connect</button>
+<pre id="out"></pre>
+
+<script>
+let char;
+
+async function connect() {
+  const device = await navigator.bluetooth.requestDevice({
+    filters: [{ namePrefix: 'ATOM' }],
+    optionalServices: ['12345678-1234-1234-1234-1234567890ab']
+  });
+
+  const server = await device.gatt.connect();
+  const service = await server.getPrimaryService(
+    '12345678-1234-1234-1234-1234567890ab'
+  );
+
+  char = await service.getCharacteristic(
+    '12345678-1234-1234-1234-1234567890ac'
+  );
+
+  await char.startNotifications();
+  char.addEventListener('characteristicvaluechanged', e => {
+    const txt = new TextDecoder().decode(e.target.value);
+    document.getElementById('out').textContent = txt;
+  });
+}
+</script>
