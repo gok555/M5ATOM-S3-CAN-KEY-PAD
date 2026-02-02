@@ -1,28 +1,157 @@
-<button onclick="connect()">Connect</button>
-<pre id="out"></pre>
-
-<script>
-let char;
-
-async function connect() {
-  const device = await navigator.bluetooth.requestDevice({
-    filters: [{ namePrefix: 'ATOM' }],
-    optionalServices: ['12345678-1234-1234-1234-1234567890ab']
-  });
-
-  const server = await device.gatt.connect();
-  const service = await server.getPrimaryService(
-    '12345678-1234-1234-1234-1234567890ab'
-  );
-
-  char = await service.getCharacteristic(
-    '12345678-1234-1234-1234-1234567890ac'
-  );
-
-  await char.startNotifications();
-  char.addEventListener('characteristicvaluechanged', e => {
-    const txt = new TextDecoder().decode(e.target.value);
-    document.getElementById('out').textContent = txt;
-  });
-}
-</script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M5AtomS3 CAN Controller</title>
+    <style>
+        :root {
+            --primary: #007bff;
+            --bg: #f4f4f4;
+            --text: #333;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: var(--bg);
+            color: var(--text);
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 { margin-bottom: 20px; font-size: 1.5rem; }
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 10px;
+            transition: opacity 0.2s;
+        }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        button:active { opacity: 0.8; }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+        #log {
+            margin-top: 20px;
+            text-align: left;
+            background: #eee;
+            padding: 10px;
+            border-radius: 8px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        .status {
+            margin-bottom: 15px;
+            font-weight: bold;
+            color: #666;
+        }
+        .connected { color: #28a745; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>M5AtomS3 CAN Controller</h1>
+        
+        <div class="status" id="status">Status: Disconnected</div>
+        
+        <button id="connectBtn">Connect to M5AtomS3</button>
+        
+        <div id="controls" style="display:none;">
+            <input type="text" id="cmdInput" placeholder="Enter message (e.g. TEST)" value="TEST">
+            <button id="sendBtn">Send Message</button>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="sendPreset('A')">Send 'A'</button>
+                <button onclick="sendPreset('B')">Send 'B'</button>
+            </div>
+        </div>
+        <div id="log"></div>
+    </div>
+    <script>
+        const DEVICE_NAME = "M5AtomS3_CAN";
+        const SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E".toLowerCase();
+        const RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E".toLowerCase(); // Phone -> Device
+        const TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E".toLowerCase(); // Device -> Phone
+        let bluetoothDevice;
+        let rxCharacteristic;
+        const connectBtn = document.getElementById('connectBtn');
+        const sendBtn = document.getElementById('sendBtn');
+        const controls = document.getElementById('controls');
+        const statusEl = document.getElementById('status');
+        const logEl = document.getElementById('log');
+        function log(msg) {
+            const time = new Date().toLocaleTimeString();
+            logEl.innerHTML += `<div>[${time}] ${msg}</div>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        connectBtn.addEventListener('click', async () => {
+            try {
+                log('Requesting Bluetooth Device...');
+                bluetoothDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: DEVICE_NAME }],
+                    optionalServices: [SERVICE_UUID]
+                });
+                bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+                log('Connecting to GATT Server...');
+                const server = await bluetoothDevice.gatt.connect();
+                log('Getting Service...');
+                const service = await server.getPrimaryService(SERVICE_UUID);
+                log('Getting Characteristics...');
+                rxCharacteristic = await service.getCharacteristic(RX_CHAR_UUID);
+                // TX characteristic for receiving not implemented in this minimal example but can be added
+                log('Connected!');
+                statusEl.textContent = 'Status: Connected';
+                statusEl.classList.add('connected');
+                connectBtn.style.display = 'none';
+                controls.style.display = 'block';
+            } catch (error) {
+                log('Argh! ' + error);
+            }
+        });
+        function onDisconnected(event) {
+            log('Disconnected');
+            statusEl.textContent = 'Status: Disconnected';
+            statusEl.classList.remove('connected');
+            connectBtn.style.display = 'block';
+            controls.style.display = 'none';
+        }
+        async function sendData(text) {
+            if (!rxCharacteristic) return;
+            try {
+                const encoder = new TextEncoder();
+                await rxCharacteristic.writeValue(encoder.encode(text));
+                log(`Sent: ${text}`);
+            } catch (error) {
+                log('Send Failed: ' + error);
+            }
+        }
+        sendBtn.addEventListener('click', () => {
+            const text = document.getElementById('cmdInput').value;
+            sendData(text);
+        });
+        window.sendPreset = (text) => {
+            sendData(text);
+        };
+    </script>
+</body>
+</html>
