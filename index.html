@@ -1,32 +1,38 @@
 <!DOCTYPE html>
 <html>
 <body>
-<button onclick="connect()">CONNECT</button>
-<button onclick="send()">SEND A</button>
+<button onclick="send('1')">BTN1</button>
+<button onclick="send('2')">BTN2</button>
+<button onclick="send('3')">BTN3</button>
+<button onclick="send('4')">BTN4</button>
+<button onclick="send('5')">BTN5</button>
+<button onclick="send('6')">BTN6</button>
+<button onclick="send('7')">BTN7</button>
+<button onclick="send('8')">BTN8</button>
 
 <script>
-const SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-const RX_CHAR = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+let device, server, service, rxChar;
 
-let rxChar;
+const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const RX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
 
 async function connect() {
-  const device = await navigator.bluetooth.requestDevice({
+  device = await navigator.bluetooth.requestDevice({
     acceptAllDevices: true,
-    optionalServices: [SERVICE]
+    optionalServices: [SERVICE_UUID]
   });
-  const server = await device.gatt.connect();
-  const service = await server.getPrimaryService(SERVICE);
-  rxChar = await service.getCharacteristic(RX_CHAR);
+  server = await device.gatt.connect();
+  service = await server.getPrimaryService(SERVICE_UUID);
+  rxChar = await service.getCharacteristic(RX_UUID);
   alert("CONNECTED");
 }
 
-async function send() {
+async function send(v) {
   if (!rxChar) return;
-  const data = new TextEncoder().encode("A");
-  await rxChar.writeValue(data);
-  console.log("SEND A");
+  await rxChar.writeValue(new TextEncoder().encode(v));
 }
+
+connect();
 </script>
 </body>
 </html>
