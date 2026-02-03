@@ -2,22 +2,108 @@
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>M5Atom CAN Keypad</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            text-align: center;
+        }
+        #connect-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 320px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        #keypad {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            width: 100%;
+            max-width: 320px;
+        }
+        .key-btn {
+            aspect-ratio: 1;
+            background: #333;
+            border: 2px solid #555;
+            border-radius: 12px;
+            color: white;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.1s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        .key-btn:active {
+            background: #555;
+            transform: scale(0.98);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        .key-btn span {
+            font-size: 0.7rem;
+            color: #bbb;
+            margin-top: 8px;
+            font-weight: normal;
+        }
+        #log {
+            margin-top: 25px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.75rem;
+            color: #00ff00;
+            width: 100%;
+            max-width: 320px;
+            height: 150px;
+            overflow-y: auto;
+            background: #000;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            box-sizing: border-box;
+        }
+    </style>
 </head>
 <body>
-    <button onclick="connect()">🔵 BLE接続</button><br><br>
-    <div id="btns"></div>
-    <pre id="log"></pre>
+    <h1>CAN Keypad</h1>
+    <button id="connect-btn" onclick="connect()">🔵 Connect BLE</button>
+    <div id="keypad"></div>
+    <pre id="log">Logs will appear here...</pre>
     <script>
         const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
         const RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
         let rxChar;
         function log(t) {
-            document.getElementById("log").textContent += t + "\n";
+            const el = document.getElementById("log");
+            // 新しいログを上に追加するスタイルに変更
+            const time = new Date().toLocaleTimeString().split(' ')[0];
+            el.textContent = `[${time}] ${t}\n` + el.textContent.substring(0, 1000);
         }
         async function connect() {
             try {
-                // 修正: 名前でフィルタリングして、関係ないデバイスを表示させない
                 const dev = await navigator.bluetooth.requestDevice({
                     filters: [{ name: "M5AtomS3_CAN" }],
                     optionalServices: [SERVICE_UUID]
@@ -25,6 +111,8 @@
                 const gatt = await dev.gatt.connect();
                 const svc = await gatt.getPrimaryService(SERVICE_UUID);
                 rxChar = await svc.getCharacteristic(RX_UUID);
+                document.getElementById("connect-btn").textContent = "🟢 Connected";
+                document.getElementById("connect-btn").style.background = "#28a745";
                 log("BLE connected");
             } catch (e) {
                 log("BLE ERROR: " + e);
@@ -33,13 +121,24 @@
         function send(n) {
             if (!rxChar) return;
             rxChar.writeValue(new TextEncoder().encode(String(n)));
-            log("SEND BTN" + n);
+            // 送信したボタンを視覚的にフィードバック
+            const btn = document.querySelectorAll('.key-btn')[n - 1];
+            const origColor = btn.style.borderColor;
+            btn.style.borderColor = '#00ff00';
+            btn.style.color = '#00ff00';
+            setTimeout(() => {
+                btn.style.borderColor = "#555";
+                btn.style.color = "white";
+            }, 200);
+            log("Tx: BTN " + n);
         }
+        const container = document.getElementById("keypad");
         for (let i = 1; i <= 8; i++) {
             const b = document.createElement("button");
-            b.textContent = "BTN" + i;
+            b.className = "key-btn";
+            b.innerHTML = `BTN ${i}<span>Byte ${i - 1}</span>`;
             b.onclick = () => send(i);
-            document.getElementById("btns").appendChild(b);
+            container.appendChild(b);
         }
     </script>
 </body>
