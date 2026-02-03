@@ -1,115 +1,32 @@
 <!DOCTYPE html>
 <html>
-<head>
-<meta charset="utf-8">
-<title>M5Atom S3 CAN Test Pad</title>
-
-<style>
-body {
-    font-family: Arial;
-    text-align: center;
-    background: #111;
-    color: #eee;
-}
-button {
-    width: 120px;
-    height: 70px;
-    margin: 10px;
-    font-size: 24px;
-    border-radius: 10px;
-}
-#connect {
-    background: #4CAF50;
-    color: white;
-    width: 200px;
-    height: 60px;
-    font-size: 22px;
-}
-.pad {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
-    width: 270px;
-    margin: 20px auto;
-}
-</style>
-</head>
-
 <body>
-<h2>M5AtomS3 CAN TEST</h2>
-
-<button id="connect">Connect</button>
-
-<div class="pad">
-    <button class="key" data-id="0">KEY 0</button>
-    <button class="key" data-id="1">KEY 1</button>
-    <button class="key" data-id="2">KEY 2</button>
-    <button class="key" data-id="3">KEY 3</button>
-    <button class="key" data-id="4">KEY 4</button>
-    <button class="key" data-id="5">KEY 5</button>
-    <button class="key" data-id="6">KEY 6</button>
-    <button class="key" data-id="7">KEY 7</button>
-</div>
+<button onclick="connect()">CONNECT</button>
+<button onclick="send()">SEND A</button>
 
 <script>
-// Nordic UART Service
-const NUS_SERVICE_UUID  = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-const NUS_TX_CHAR_UUID  = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
-const NUS_RX_CHAR_UUID  = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
+const SERVICE = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
+const RX_CHAR = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
 
-let device = null;
-let rxCharacteristic = null;
+let rxChar;
 
-// ----------------------------
-// Connect
-// ----------------------------
-document.getElementById("connect").onclick = async () => {
-    try {
-        device = await navigator.bluetooth.requestDevice({
-            filters: [{ namePrefix: "M5AtomS3" }],
-            optionalServices: [NUS_SERVICE_UUID]
-        });
-
-        const server = await device.gatt.connect();
-        const service = await server.getPrimaryService(NUS_SERVICE_UUID);
-
-        rxCharacteristic = await service.getCharacteristic(NUS_RX_CHAR_UUID);
-
-        alert("Connected!");
-    } catch (e) {
-        alert("Connect error: " + e);
-    }
-};
-
-
-// ----------------------------
-// Send BLE Command
-// ----------------------------
-async function sendBLE(cmd) {
-    if (!rxCharacteristic) return;
-    try {
-        await rxCharacteristic.writeValue(new TextEncoder().encode(cmd));
-        console.log("BLE TX:", cmd);
-    } catch (e) {
-        console.log("BLE error:", e);
-    }
+async function connect() {
+  const device = await navigator.bluetooth.requestDevice({
+    acceptAllDevices: true,
+    optionalServices: [SERVICE]
+  });
+  const server = await device.gatt.connect();
+  const service = await server.getPrimaryService(SERVICE);
+  rxChar = await service.getCharacteristic(RX_CHAR);
+  alert("CONNECTED");
 }
 
-// ----------------------------
-// Handle Press / Release
-// ----------------------------
-document.querySelectorAll(".key").forEach(btn => {
-    const id = btn.dataset.id;
-
-    btn.addEventListener("touchstart", () => sendBLE("D" + id));
-    btn.addEventListener("mousedown", () => sendBLE("D" + id));
-
-    btn.addEventListener("touchend", () => sendBLE("U" + id));
-    btn.addEventListener("mouseup", () => sendBLE("U" + id));
-
-    btn.addEventListener("mouseleave", () => sendBLE("U" + id));
-});
+async function send() {
+  if (!rxChar) return;
+  const data = new TextEncoder().encode("A");
+  await rxChar.writeValue(data);
+  console.log("SEND A");
+}
 </script>
-
 </body>
 </html>
