@@ -1,4 +1,4 @@
-<!-- Version: v1.2 -->
+<!-- Version: v1.3 -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -34,6 +34,11 @@
             font-size: 0.8rem;
             color: #666;
             margin-top: 5px;
+        }
+        .info {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 2px;
         }
         .controls {
             width: 100%;
@@ -168,7 +173,8 @@
 <body>
     <div class="header">
         <h1>CAN Keypad</h1>
-        <div class="version">Ver 1.2</div>
+        <div class="version">Ver 1.3</div>
+        <div class="info">Sync Protocol</div>
     </div>
     <div class="controls">
         <button id="connect-btn" onclick="connect()">🔵 Connect BLE</button>
@@ -183,7 +189,7 @@
         let isEditMode = false;
         let btnLabels = JSON.parse(localStorage.getItem("btnLabels")) ||
             Array.from({ length: 8 }, (_, i) => `BTN ${i + 1}`);
-        let btnStates = Array(8).fill(false); // Track toggle state
+        let btnStates = Array(8).fill(false);
         function log(t) {
             const el = document.getElementById("log");
             const time = new Date().toLocaleTimeString().split(' ')[0];
@@ -207,19 +213,28 @@
         }
         function send(n) {
             if (isEditMode) return;
-            if (!rxChar) return;
-            // Send the command
-            rxChar.writeValue(new TextEncoder().encode(String(n)));
-            // Toggle visual state
+            // Can continue even without ble connection for UI testing, 
+            // but for actual usage we check rxChar
+            // Toggle internal state
             const btnIndex = n - 1;
-            btnStates[btnIndex] = !btnStates[btnIndex];
+            const newState = !btnStates[btnIndex];
+            btnStates[btnIndex] = newState;
+            // Update UI first
             const btn = document.getElementById('btn-' + n);
-            if (btnStates[btnIndex]) {
+            if (newState) {
                 btn.classList.add('active');
             } else {
                 btn.classList.remove('active');
             }
-            log(`Tx: Byte ${btnIndex} -> ${btnStates[btnIndex] ? "ON" : "OFF"}`);
+            if (rxChar) {
+                // Send Command: "N=1" or "N=0"
+                const cmd = `${n}=${newState ? 1 : 0}`;
+                rxChar.writeValue(new TextEncoder().encode(cmd))
+                    .catch(e => log("TX ERR: " + e));
+                log(`Tx: ${cmd} (${btnLabels[btnIndex]})`);
+            } else {
+                log(`(No BLE) Clicked: ${n} -> ${newState}`);
+            }
         }
         function toggleEditMode() {
             isEditMode = !isEditMode;
