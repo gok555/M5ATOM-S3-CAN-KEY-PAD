@@ -1,4 +1,4 @@
-<!-- Version: v1.1 -->
+<!-- Version: v1.2 -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -84,7 +84,7 @@
             font-size: 1.1rem;
             font-weight: bold;
             cursor: pointer;
-            transition: all 0.1s;
+            transition: all 0.2s;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -95,13 +95,21 @@
             text-align: center;
         }
         .key-btn:active {
-            background: #555;
             transform: scale(0.98);
             box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
         }
+        /* Active (ON) state style */
+        .key-btn.active {
+            background: #006000;
+            border-color: #00ff00;
+            color: #00ff00;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
+        }
         .editing .key-btn {
-            border-color: #f39c12;
-            background: #444;
+            border-color: #f39c12 !important;
+            background: #444 !important;
+            color: white !important;
+            box-shadow: none !important;
         }
         .key-btn input {
             display: none;
@@ -126,6 +134,9 @@
             margin-top: 8px;
             font-weight: normal;
         }
+        .key-btn.active span.sub {
+            color: #8f8;
+        }
         #log {
             margin-top: 25px;
             font-family: 'Courier New', Courier, monospace;
@@ -142,7 +153,6 @@
             box-sizing: border-box;
             transition: max-width 0.3s;
         }
-        /* Landscape / Wide screen adjustment */
         @media (min-width: 500px) and (orientation: landscape) {
             .controls,
             #keypad,
@@ -158,7 +168,7 @@
 <body>
     <div class="header">
         <h1>CAN Keypad</h1>
-        <div class="version">Ver 1.1</div>
+        <div class="version">Ver 1.2</div>
     </div>
     <div class="controls">
         <button id="connect-btn" onclick="connect()">🔵 Connect BLE</button>
@@ -173,6 +183,7 @@
         let isEditMode = false;
         let btnLabels = JSON.parse(localStorage.getItem("btnLabels")) ||
             Array.from({ length: 8 }, (_, i) => `BTN ${i + 1}`);
+        let btnStates = Array(8).fill(false); // Track toggle state
         function log(t) {
             const el = document.getElementById("log");
             const time = new Date().toLocaleTimeString().split(' ')[0];
@@ -197,15 +208,18 @@
         function send(n) {
             if (isEditMode) return;
             if (!rxChar) return;
+            // Send the command
             rxChar.writeValue(new TextEncoder().encode(String(n)));
+            // Toggle visual state
+            const btnIndex = n - 1;
+            btnStates[btnIndex] = !btnStates[btnIndex];
             const btn = document.getElementById('btn-' + n);
-            btn.style.borderColor = '#00ff00';
-            btn.style.color = '#00ff00';
-            setTimeout(() => {
-                btn.style.borderColor = isEditMode ? "#f39c12" : "#555";
-                btn.style.color = "white";
-            }, 200);
-            log(`Tx: Byte ${n - 1} (${btnLabels[n - 1]})`);
+            if (btnStates[btnIndex]) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+            log(`Tx: Byte ${btnIndex} -> ${btnStates[btnIndex] ? "ON" : "OFF"}`);
         }
         function toggleEditMode() {
             isEditMode = !isEditMode;
