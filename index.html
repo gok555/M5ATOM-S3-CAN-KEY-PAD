@@ -1,38 +1,81 @@
 <!DOCTYPE html>
 <html>
+<head>
+<meta charset="utf-8">
+<title>M5Atom CAN KEYPAD</title>
+<style>
+button {
+    font-size: 22px;
+    margin: 8px;
+    padding: 12px 18px;
+}
+#log {
+    margin-top: 20px;
+    font-size: 20px;
+    white-space: pre-line;
+}
+</style>
+</head>
 <body>
-<button onclick="send('1')">BTN1</button>
-<button onclick="send('2')">BTN2</button>
-<button onclick="send('3')">BTN3</button>
-<button onclick="send('4')">BTN4</button>
-<button onclick="send('5')">BTN5</button>
-<button onclick="send('6')">BTN6</button>
-<button onclick="send('7')">BTN7</button>
-<button onclick="send('8')">BTN8</button>
+
+<h2>M5Atom CAN KEYPAD</h2>
+
+<button id="connect">🔵 BLE 接続</button>
+<br><br>
+
+<button onclick="sendKey(1)">BTN1</button>
+<button onclick="sendKey(2)">BTN2</button>
+<button onclick="sendKey(3)">BTN3</button>
+<button onclick="sendKey(4)">BTN4</button><br>
+<button onclick="sendKey(5)">BTN5</button>
+<button onclick="sendKey(6)">BTN6</button>
+<button onclick="sendKey(7)">BTN7</button>
+<button onclick="sendKey(8)">BTN8</button>
+
+<div id="log"></div>
 
 <script>
-let device, server, service, rxChar;
+let device = null;
+let characteristic = null;
 
-const SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-const RX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+// -------------------------------
+// BLE 接続
+// -------------------------------
+document.getElementById("connect").onclick = async () => {
+    try {
+        device = await navigator.bluetooth.requestDevice({
+            filters: [{ name: "M5AtomS3_CAN" }],
+            optionalServices: ["6E400001-B5A3-F393-E0A9-E50E24DCCA9E"]
+        });
 
-async function connect() {
-  device = await navigator.bluetooth.requestDevice({
-    acceptAllDevices: true,
-    optionalServices: [SERVICE_UUID]
-  });
-  server = await device.gatt.connect();
-  service = await server.getPrimaryService(SERVICE_UUID);
-  rxChar = await service.getCharacteristic(RX_UUID);
-  alert("CONNECTED");
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService("6E400001-B5A3-F393-E0A9-E50E24DCCA9E");
+
+        characteristic = await service.getCharacteristic("6E400002-B5A3-F393-E0A9-E50E24DCCA9E");
+
+        log("BLE Connected");
+    } catch (e) {
+        log("BLE Error: " + e);
+    }
+};
+
+// -------------------------------
+// ボタン送信（1〜8）
+// -------------------------------
+function sendKey(num) {
+    if (!characteristic) {
+        log("⚠ BLE未接続");
+        return;
+    }
+    const data = new TextEncoder().encode(String(num));
+    characteristic.writeValue(data);
+    log("SEND → " + num);
 }
 
-async function send(v) {
-  if (!rxChar) return;
-  await rxChar.writeValue(new TextEncoder().encode(v));
+// -------------------------------
+function log(t) {
+    document.getElementById("log").innerText += t + "\n";
 }
-
-connect();
 </script>
 </body>
 </html>
