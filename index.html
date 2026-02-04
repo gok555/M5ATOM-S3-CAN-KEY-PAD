@@ -1,4 +1,4 @@
-<!-- Version: v1.8 (Momentary Sync Fix) -->
+<!-- Version: v1.9 (Pulse Logic) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -337,11 +337,11 @@
         <div style="color: #ccc; font-size: 0.9rem; margin-bottom: 5px; margin-left: 5px;">Button Mode</div>
         <div class="mode-switch">
           <button id="mode-toggle" class="mode-btn selected" onclick="setMode('toggle')">Toggle</button>
-          <button id="mode-momentary" class="mode-btn" onclick="setMode('momentary')">Momentary</button>
+          <button id="mode-momentary" class="mode-btn" onclick="setMode('momentary')">Momentary (Pulse)</button>
         </div>
         <div style="color: #666; font-size: 0.7rem; margin-top: 3px; margin-left: 5px;">
           Toggle: Click to Switch ON/OFF<br>
-          Momentary: Hold ON, Release OFF
+          Pulse: Tap to Pulse (ON -> 150ms -> OFF)
         </div>
       </div>
       <!-- Fullscreen -->
@@ -349,7 +349,7 @@
         <button class="action-btn btn-gray" onclick="toggleFullscreen()">⛶ Toggle Fullscreen</button>
       </div>
       <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
-        Ver 1.8 (Momentary Sync Fix)<br>
+        Ver 1.9 (Pulse Logic)<br>
         M5Atom S3 CAN
       </div>
     </div>
@@ -361,21 +361,21 @@
     const TX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
     let rxChar;
     let isEditMode = false;
-    let isMomentary = false; // Default Toggle
+    let isMomentary = false; // Default Toggle (Pulse Mode)
     let btnLabels = JSON.parse(localStorage.getItem("btnLabels")) ||
       Array.from({ length: 8 }, (_, i) => `BTN ${i + 1}`);
     let btnStates = Array(8).fill(false);
     let isConnected = false;
-    // --- Momentary Logic Fix ---
-    let isPressingAny = false;
-    let lastInteractionTime = 0; // Timestamp of last press/release
+    // --- Pulse Logic Variables ---
+    let isPulsing = false; // Flag to ignore sync during pulse
+    let lastPulseTime = 0; // Timestamp
     /* --- Mode Logic --- */
     function setMode(mode) {
       if (mode === 'momentary') {
         isMomentary = true;
         document.getElementById('mode-momentary').classList.add('selected');
         document.getElementById('mode-toggle').classList.remove('selected');
-        log("Mode: Momentary");
+        log("Mode: Pulse (Momentary)");
       } else {
         isMomentary = false;
         document.getElementById('mode-toggle').classList.add('selected');
@@ -457,13 +457,13 @@
       const decoder = new TextDecoder('utf-8');
       const msg = decoder.decode(value);
       if (msg.startsWith("STATE=")) {
-        // --- SYNC PROTECTION FIX ---
-        // If in Momentary Mode, and we are pressing OR recently released (500ms safety window),
-        // IGNORE the sync packet. This prevents old latency data from reverting our UI state.
+        // --- SYNC PROTECTION FIX (PULSE) ---
+        // If we are currently pulsing or recently pulsed, IGNORE sync.
+        // This ensures the 150ms ON -> OFF sequence completes without interference.
         if (isMomentary) {
-          const timeSinceLast = Date.now() - lastInteractionTime;
-          if (isPressingAny || timeSinceLast < 500) {
-            // log("Ignored Sync (Anti-Flicker)");
+          const timeSinceLast = Date.now() - lastPulseTime;
+          if (isPulsing || timeSinceLast < 500) {
+            // log("Ignored Sync (Pulse)");
             return;
           }
         }
@@ -500,34 +500,33 @@
           });
       }
     }
-    function handleClick(n) {
+    // --- Interaction Handlers ---
+    function handleInteraction(n, e) {
       if (isEditMode) return;
-      if (isMomentary) return; // Ignore click in Momentary Mode
-      lastInteractionTime = Date.now();
-      // Toggle Logic
-      const btnIndex = n - 1;
-      const newState = !btnStates[btnIndex];
-      sendState(n, newState);
+      if (e && e.target.tagName === 'INPUT') return;
+      if (e) e.preventDefault(); // Prevent double firing (touch+click)
+      if (isMomentary) {
+        triggerPulse(n);
+      } else {
+        // Toggle Mode
+        const btnIndex = n - 1;
+        const newState = !btnStates[btnIndex];
+        sendState(n, newState);
+      }
     }
-    function handlePressStart(n, e) {
-      if (isEditMode) return;
-      if (!isMomentary) return;
-      // Fix Logic
-      isPressingAny = true;
-      lastInteractionTime = Date.now();
-      e.preventDefault();
-      document.getElementById('btn-' + n).classList.add('pressed');
+    function triggerPulse(n) {
+      // Prevent double triggers if already pulsing (optional safety)
+      // Set flags
+      isPulsing = true;
+      lastPulseTime = Date.now();
+      // 1. Send ON
       sendState(n, true);
-    }
-    function handlePressEnd(n, e) {
-      if (isEditMode) return;
-      if (!isMomentary) return;
-      // Fix Logic
-      isPressingAny = false;
-      lastInteractionTime = Date.now();
-      if (e) e.preventDefault();
-      document.getElementById('btn-' + n).classList.remove('pressed');
-      sendState(n, false);
+      // 2. Schedule OFF
+      setTimeout(() => {
+        sendState(n, false);
+        isPulsing = false;
+        lastPulseTime = Date.now();
+      }, 150); // 150ms pulse
     }
     function setCanId() {
       const input = document.getElementById("can-id-input");
@@ -589,35 +588,13 @@
             <span class="sub">Byte ${i - 1}</span>
         `;
       // Event Listeners for Interaction
-      // Mouse Events
-      b.addEventListener('mousedown', (e) => {
-        if (e.target.tagName === 'INPUT') return;
-        handlePressStart(i, e);
+      // Simplified: use 'pointerdown' (covers mouse & touch) for immediate reaction
+      b.addEventListener('pointerdown', (e) => {
+        handleInteraction(i, e);
       });
-      b.addEventListener('mouseup', (e) => {
-        if (e.target.tagName === 'INPUT') return;
-        handlePressEnd(i, e);
-      });
-      b.addEventListener('mouseleave', (e) => {
-        // If dragging out while held
-        if (isMomentary && b.classList.contains('pressed')) {
-          handlePressEnd(i, e);
-        }
-      });
-      // Touch Events
-      b.addEventListener('touchstart', (e) => {
-        if (e.target.tagName === 'INPUT') return;
-        handlePressStart(i, e);
-      });
-      b.addEventListener('touchend', (e) => {
-        if (e.target.tagName === 'INPUT') return;
-        handlePressEnd(i, e);
-      });
-      // Click (for Toggle)
-      b.addEventListener('click', (e) => {
-        if (e.target.tagName === 'INPUT') return;
-        handleClick(i);
-      });
+      // We don't need mouseup/touchend for Pulse mode or Toggle mode (toggle is usually click, but pointerdown is snappier)
+      // If we use pointerdown for toggle, we just need to ensure no ghosts.
+      // 'click' might be fired after pointerdown, so we preventDefault in handleInteraction.
       container.appendChild(b);
     }
   </script>
