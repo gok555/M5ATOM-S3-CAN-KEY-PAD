@@ -797,13 +797,9 @@
         const states = msg.substring(6).split(',');
         if (states.length >= 8) {
           const now = Date.now();
-          // Ver 3.0: Iterate Buttons and mapped indices
+          // Ver 3.2: Iterate Buttons (Fixed Index, Bit Reverse Logic)
           for (let i = 0; i < 8; i++) {
-            let targetIdx = i;
-            if (btnEndian[i] === 'little') {
-              targetIdx = 7 - i;
-            }
-            const s = states[targetIdx];
+            const s = states[i];
             if (s === undefined) continue;
             if (btnModes[i] === 'momentary') {
               if (now - lastPulseTimes[i] < 500) {
@@ -811,7 +807,11 @@
               }
             }
             // Version 2.7 Logic preserved
-            const receivedVal = parseInt(s, 10);
+            let receivedVal = parseInt(s, 10);
+            // Ver 3.2: Reverse Bits if Little Endian
+            if (btnEndian[i] === 'little') {
+              receivedVal = reverseBits(receivedVal);
+            }
             const onVal = parseInt(btnOnVals[i], 16);
             btnStates[i] = (receivedVal === onVal);
             updateBtnVisual(i + 1, btnStates[i]);
@@ -839,19 +839,29 @@
       if (rxChar) {
         // Version 2.7: Send Configured Hex Value
         const valStr = state ? btnOnVals[btnIndex] : btnOffVals[btnIndex];
-        const valInt = parseInt(valStr, 16);
-        // Ver 3.0: Endian Mapping
-        let targetIdx = btnIndex;
+        let valInt = parseInt(valStr, 16);
+        // Ver 3.2: Endian means Bit Reversal, NOT Byte Swap
         if (btnEndian[btnIndex] === 'little') {
-          targetIdx = 7 - btnIndex;
+          valInt = reverseBits(valInt);
         }
-        const targetN = targetIdx + 1;
+        // Target is always the button index + 1
+        const targetN = btnIndex + 1;
         const cmd = `${targetN}=${valInt}`;
         rxChar.writeValue(new TextEncoder().encode(cmd))
           .catch(e => {
             // log("TX ERR");
           });
       }
+    }
+    function reverseBits(b) {
+      b = b & 0xFF;
+      let r = 0;
+      for (let i = 0; i < 8; i++) {
+        if ((b >> i) & 1) {
+          r |= 1 << (7 - i);
+        }
+      }
+      return r;
     }
     // --- Interaction Handlers ---
     function handleInteraction(n, e) {
