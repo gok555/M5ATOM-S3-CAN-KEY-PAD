@@ -1,4 +1,4 @@
-<!-- Version: v3.3 (Icon Support) -->
+<!-- Version: v3.4 (Baudrate Control) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -420,6 +420,19 @@
           <button id="set-id-btn" class="action-btn btn-orange" onclick="setCanId()">SET</button>
         </div>
       </div>
+      <!-- Baudrate (Ver 3.4) -->
+      <div class="control-row" style="margin-top: 10px;">
+        <div class="id-input-group">
+          <label>Speed:</label>
+          <select id="can-baud-select" onchange="setCanBaud(this.value)"
+            style="flex:1; background:#222; color:white; border:1px solid #555; padding:10px; border-radius:4px; font-size:1rem;">
+            <option value="500000">500 kbps</option>
+            <option value="1000000">1 Mbps</option>
+            <option value="250000">250 kbps</option>
+            <option value="125000">125 kbps</option>
+          </select>
+        </div>
+      </div>
       <!-- Feedback Settings (Ver 3.1) -->
       <div class="control-row" style="margin-top: 10px; border-bottom:1px solid #444; padding-bottom:10px;">
         <div style="color: #ccc; font-size: 0.9rem; margin-bottom: 5px;">Feedback (Haptic/Audio)</div>
@@ -470,10 +483,7 @@
         <input type="file" id="import-file" style="display:none" accept=".json" onchange="handleFileSelect(this)">
       </div>
       <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
-        <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
-          Ver 3.3 (Icon Support)<br>
-          M5Atom S3 CAN
-        </div>
+        Ver 3.4 (Icons + Baudrate)<br>
         M5Atom S3 CAN
       </div>
     </div>
@@ -940,30 +950,34 @@
       }, 150);
     }
     function setCanId() {
-      const input = document.getElementById("can-id-input");
-      let val = input.value.trim();
-      if (/^[0-9A-Fa-f]+$/.test(val)) {
+      const el = document.getElementById("can-id-input");
+      const val = el.value;
+      if (val.match(/^[0-9A-Fa-f]+$/)) {
+        log(`Set CAN ID: 0x${val}`);
+        localStorage.setItem("canIdVal", val);
+        canIdVal = val;
+        // Send command to device
         if (rxChar) {
           const cmd = `ID=${val}`;
           rxChar.writeValue(new TextEncoder().encode(cmd))
-            .catch(e => log("TX ERR"));
-          log(`Set ID: 0x${val}`);
-          alert(`CAN ID set to 0x${val}`);
-        } else {
-          // Allow setting ID even if disconnected for config purpose? 
-          // Currently ID is sent to device immediately. 
-          // Let's allow saving to local var if disconnected?
-          // For now, keep original behavior but maybe warn.
-          log("Not connected");
-          alert("Not connected - ID set in UI but not Device");
+            .catch(e => log("TX ERR ID"));
         }
       } else {
         alert("Invalid Hex ID");
       }
     }
+    function setCanBaud(val) {
+      log(`Set Baud: ${val}`);
+      localStorage.setItem("canBaud", val);
+      canBaud = val;
+      if (rxChar) {
+        const cmd = `BAUD=${val}`;
+        rxChar.writeValue(new TextEncoder().encode(cmd))
+          .catch(e => log("TX ERR BAUD"));
+      }
+    }
     /* --- Import / Export Logic --- */
     function exportConfig() {
-      const canIdVal = document.getElementById("can-id-input").value;
       const config = {
         version: "2.5",
         timestamp: new Date().toISOString(),
@@ -976,7 +990,8 @@
         btnIcons: btnIcons,
         cfgVibe: cfgVibe,
         cfgSound: cfgSound,
-        canId: canIdVal
+        canId: canIdVal,
+        canBaud: canBaud
       };
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
       const downloadAnchor = document.createElement('a');
@@ -1036,9 +1051,17 @@
           }
           if (config.canId) {
             document.getElementById("can-id-input").value = config.canId;
+            canIdVal = config.canId; // Update global variable
+            localStorage.setItem("canIdVal", canIdVal);
             // Note: We don't auto-send ID to device here to avoid unexpected traffic. 
             // User must click SET if they want to push valid ID to device immediately, 
             // or it will be used next time/manually.
+          }
+          if (config.canBaud) {
+            canBaud = config.canBaud;
+            localStorage.setItem("canBaud", canBaud);
+            document.getElementById("can-baud-select").value = canBaud;
+            // Auto-send? No, same as ID.
           }
           log("Config Loaded");
           alert("Configuration Loaded Successfully");
