@@ -1,45 +1,65 @@
-<!-- Version: v1.5 (Split Mode) -->
+<!-- Version: v1.6 (Mobile Fixed) -->
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>M5Atom CAN Keypad</title>
   <style>
+    /* Reset & Base */
+    html,
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #1a1a1a;
-      color: #ffffff;
       margin: 0;
       padding: 0;
-      height: 100vh;
-      width: 100vw;
+      width: 100%;
+      height: 100%;
+      /* Fallback */
+      height: 100dvh;
+      /* Dynamic Viewport Height */
       overflow: hidden;
+      background-color: #1a1a1a;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      touch-action: manipulation;
+      /* Prevent double-tap zoom */
+    }
+    body {
       display: flex;
       flex-direction: column;
     }
     /* --- Views --- */
     .view-container {
       display: none;
-      width: 100%;
-      height: 100%;
+      flex: 1;
       flex-direction: column;
       box-sizing: border-box;
       padding: 10px;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
     }
     .view-container.active {
       display: flex;
     }
-    /* --- Keypad View (Main) --- */
+    /* --- Main View (Keypad) --- */
     #view-main {
-      justify-content: space-between;
+      /* Flex logic to fill height */
     }
     .main-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px;
+      margin-bottom: 5px;
       padding: 0 5px;
+      flex-shrink: 0;
+      /* Keep header size fixed */
+      height: 40px;
+    }
+    .status-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
     .status-indicator {
       font-size: 0.9rem;
@@ -49,58 +69,77 @@
     .status-indicator.connected {
       color: #28a745;
     }
-    #settings-btn {
+    .header-btn {
       background: none;
       border: none;
       font-size: 1.5rem;
       cursor: pointer;
       padding: 5px;
       color: #aaa;
+      line-height: 1;
     }
     #keypad {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        grid-template-rows: repeat(4, 1fr);
-        gap: 10px;
-        flex-grow: 1; /* Fill remaining space */
-        width: 100%;
-        max-width: 600px;
-        align-self: center;
+      display: grid;
+      gap: 8px;
+      /* Slightly tighter gap */
+      flex-grow: 1;
+      /* Fill remaining vertical space */
+      width: 100%;
+      max-width: 600px;
+      /* Limit width on tablets */
+      align-self: center;
+      /* Portrait: 2 columns x 4 rows */
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(4, 1fr);
     }
-    
+    /* Landscape Layout */
+    @media (orientation: landscape) {
+      #keypad {
+        /* Landscape: 4 columns x 2 rows */
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: repeat(2, 1fr);
+      }
+      .main-header {
+        margin-bottom: 2px;
+        height: 30px;
+        /* More compact header */
+      }
+    }
     .key-btn {
       background: #333;
       border: 2px solid #555;
       border-radius: 12px;
       color: white;
-      font-size: 1.5rem; /* Larger font */
       font-weight: bold;
       cursor: pointer;
-      transition: all 0.1s;
       display: flex;
       justify-content: center;
       align-items: center;
       flex-direction: column;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
       position: relative;
       text-align: center;
       width: 100%;
-      height: 100%; /* Fill grid cell */
+      height: 100%;
+      user-select: none;
+      -webkit-user-select: none;
+      /* Dynamic Font Size based on viewport */
+      font-size: clamp(1rem, 5vw, 2rem);
     }
     .key-btn:active {
       transform: scale(0.98);
-      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+      background: #444;
     }
     .key-btn.active {
       background: #006000;
       border-color: #00ff00;
       color: #00ff00;
-      box-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+      box-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
     }
     .key-btn span.sub {
-      font-size: 0.8rem;
+      font-size: 0.7em;
       color: #bbb;
-      margin-top: 5px;
+      margin-top: 4px;
       font-weight: normal;
     }
     .key-btn.active span.sub {
@@ -108,85 +147,103 @@
     }
     /* --- Settings View --- */
     #view-settings {
+      background: #222;
+      overflow-y: auto;
+      /* Allow scrolling in settings */
       align-items: center;
-      background: #222; /* Slightly different bg for context */
     }
     .settings-header {
-        display: flex;
-        width: 100%;
-        align-items: center;
-        margin-bottom: 30px;
-        border-bottom: 1px solid #444;
-        padding-bottom: 10px;
+      display: flex;
+      width: 100%;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #444;
+      flex-shrink: 0;
     }
     .back-btn {
-        background: none;
-        border: none;
-        font-size: 1.5rem;
-        color: #fff;
-        cursor: pointer;
-        padding: 5px 15px;
+      background: none;
+      border: none;
+      font-size: 1.2rem;
+      color: #fff;
+      cursor: pointer;
+      padding: 10px;
     }
     .settings-title {
-        flex-grow: 1;
-        text-align: center;
-        font-size: 1.2rem;
-        font-weight: bold;
+      flex-grow: 1;
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: bold;
     }
     .settings-group {
-        width: 100%;
-        max-width: 320px;
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
     }
-    .control-row, .id-input-group {
-        display: flex;
-        width: 100%;
-        gap: 10px;
+    .control-row {
+      width: 100%;
+    }
+    .action-btn {
+      width: 100%;
+      padding: 15px;
+      font-size: 1rem;
+      border-radius: 8px;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-blue {
+      background: #007bff;
+    }
+    .btn-gray {
+      background: #555;
+    }
+    .btn-orange {
+      background: #e67e22;
+    }
+    .btn-green {
+      background: #28a745;
     }
     .id-input-group {
-        align-items: center;
-        background: #333;
-        padding: 10px;
-        border-radius: 8px;
+      display: flex;
+      align-items: center;
+      background: #333;
+      padding: 5px;
+      border-radius: 8px;
+      gap: 10px;
     }
-    
-    /* Reused styles */
-    #connect-btn, #edit-mode-btn, #set-id-btn {
-        padding: 15px; /* Larger touch targets */
-        font-size: 1rem;
-        border-radius: 8px;
-        border: none;
-        color: white;
-        cursor: pointer;
-        font-weight: bold; 
+    .id-input-group label {
+      padding-left: 10px;
+      color: #ddd;
     }
-    #connect-btn { background: #007bff; flex: 2; }
-    #edit-mode-btn { background: #555; flex: 1; }
-    #set-id-btn { background: #e67e22; padding: 10px 20px;}
-    
     #can-id-input {
-        background: #222;
-        border: 1px solid #555;
-        color: white;
-        padding: 10px;
-        flex: 1;
-        border-radius: 4px;
-        text-align: center;
-        font-family: monospace;
-        font-size: 1.2rem;
+      flex: 1;
+      background: #222;
+      border: 1px solid #555;
+      color: white;
+      padding: 10px;
+      border-radius: 4px;
+      text-align: center;
+      font-family: monospace;
+      font-size: 1.2rem;
     }
-    label { color: #ccc; }
     #log {
-      margin-top: auto; /* Push to bottom */
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 0.7rem;
-      color: #00ff00;
+      margin-top: auto;
       width: 100%;
       height: 100px;
+      min-height: 100px;
       overflow-y: auto;
       background: #000;
+      color: #0f0;
+      font-family: monospace;
+      font-size: 0.7rem;
       padding: 5px;
       border: 1px solid #444;
       box-sizing: border-box;
@@ -207,44 +264,59 @@
       padding: 4px;
       border-radius: 4px;
     }
-    .editing .key-btn input { display: block; }
-    .editing .key-btn .btn-label { display: none; }
+    .editing .key-btn input {
+      display: block;
+    }
+    .editing .key-btn .btn-label {
+      display: none;
+    }
   </style>
 </head>
 <body>
   <!-- KEYPAD VIEW -->
   <div id="view-main" class="view-container active">
     <div class="main-header">
-      <div id="status-display" class="status-indicator">🔴 Disconnected</div>
-      <button id="settings-btn" onclick="showSettings()">⚙️</button>
+      <div class="status-group">
+        <div id="status-display" class="status-indicator">🔴 Disconnected</div>
+      </div>
+      <div style="display:flex; gap:15px;">
+        <!-- Fullscreen Toggle -->
+        <button class="header-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
+        <!-- Settings -->
+        <button id="settings-btn" class="header-btn" onclick="showSettings()">⚙️</button>
+      </div>
     </div>
     <div id="keypad"></div>
   </div>
   <!-- SETTINGS VIEW -->
   <div id="view-settings" class="view-container">
     <div class="settings-header">
-        <button class="back-btn" onclick="showMain()">‹ Back</button>
-        <div class="settings-title">Settings</div>
-        <div style="width: 50px;"></div> <!-- Spacer for center alignment -->
+      <button class="back-btn" onclick="showMain()">‹ Back</button>
+      <div class="settings-title">Settings</div>
+      <div style="width: 50px;"></div>
     </div>
     <div class="settings-group">
-        <div class="control-row">
-            <button id="connect-btn" onclick="connect()">🔵 Connect BLE</button>
-        </div>
-        
-        <div class="control-row">
-             <button id="edit-mode-btn" onclick="toggleEditMode()">✏️ Edit Names</button>
-        </div>
+      <div class="control-row">
+        <button id="connect-btn" class="action-btn btn-blue" onclick="connect()">🔵 Connect BLE</button>
+      </div>
+      <div class="control-row">
+        <button id="edit-mode-btn" class="action-btn btn-gray" onclick="toggleEditMode()">✏️ Edit Names</button>
+      </div>
+      <div class="control-row">
         <div class="id-input-group">
-            <label>ID(Hex): 0x</label>
-            <input type="text" id="can-id-input" value="100" maxlength="3">
-            <button id="set-id-btn" onclick="setCanId()">SET</button>
+          <label>ID(Hex): 0x</label>
+          <input type="text" id="can-id-input" value="100" maxlength="3">
+          <button id="set-id-btn" class="action-btn btn-orange" style="width:auto; padding: 10px 20px;"
+            onclick="setCanId()">SET</button>
         </div>
-        
-        <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
-            Ver 1.5 (Split Mode)<br>
-            M5Atom S3 CAN
-        </div>
+      </div>
+      <div class="control-row">
+        <button class="action-btn btn-gray" onclick="toggleFullscreen()">⛶ Toggle Fullscreen</button>
+      </div>
+      <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
+        Ver 1.6 (Mobile Fixed)<br>
+        M5Atom S3 CAN
+      </div>
     </div>
     <pre id="log">Logs...</pre>
   </div>
@@ -258,38 +330,48 @@
       Array.from({ length: 8 }, (_, i) => `BTN ${i + 1}`);
     let btnStates = Array(8).fill(false);
     let isConnected = false;
+    /* --- Fullscreen Logic --- */
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(e => {
+          log("FS Err: " + e);
+        });
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
     /* --- View Navigation --- */
     function showSettings() {
-        document.getElementById("view-main").classList.remove("active");
-        document.getElementById("view-settings").classList.add("active");
+      document.getElementById("view-main").classList.remove("active");
+      document.getElementById("view-settings").classList.add("active");
     }
     function showMain() {
-        if(isEditMode) toggleEditMode(); // Exit edit mode if leaving
-        document.getElementById("view-settings").classList.remove("active");
-        document.getElementById("view-main").classList.add("active");
+      if (isEditMode) toggleEditMode();
+      document.getElementById("view-settings").classList.remove("active");
+      document.getElementById("view-main").classList.add("active");
     }
     function log(t) {
       const el = document.getElementById("log");
       const time = new Date().toLocaleTimeString().split(' ')[0];
       el.textContent = `[${time}] ${t}\n` + el.textContent.substring(0, 1000);
     }
-    
     function updateStatus(connected) {
-        isConnected = connected;
-        const ind = document.getElementById("status-display");
-        const btn = document.getElementById("connect-btn");
-        
-        if(connected) {
-            ind.textContent = "🟢 Connected";
-            ind.classList.add("connected");
-            btn.textContent = "🟢 Connected";
-            btn.style.background = "#28a745";
-        } else {
-            ind.textContent = "🔴 Disconnected";
-            ind.classList.remove("connected");
-            btn.textContent = "🔵 Connect BLE";
-            btn.style.background = "#007bff";
-        }
+      isConnected = connected;
+      const ind = document.getElementById("status-display");
+      const btn = document.getElementById("connect-btn");
+      if (connected) {
+        ind.textContent = "🟢 Connected";
+        ind.classList.add("connected");
+        btn.textContent = "🟢 Connected";
+        btn.className = "action-btn btn-green";
+      } else {
+        ind.textContent = "🔴 Disconnected";
+        ind.classList.remove("connected");
+        btn.textContent = "🔵 Connect BLE";
+        btn.className = "action-btn btn-blue";
+      }
     }
     async function connect() {
       try {
@@ -299,10 +381,9 @@
         });
         const gatt = await dev.gatt.connect();
         dev.addEventListener('gattserverdisconnected', () => {
-             log("Disconnected");
-             updateStatus(false);
+          log("Disconnected");
+          updateStatus(false);
         });
-        
         const svc = await gatt.getPrimaryService(SERVICE_UUID);
         rxChar = await svc.getCharacteristic(RX_UUID);
         const txChar = await svc.getCharacteristic(TX_UUID);
@@ -310,12 +391,9 @@
         txChar.addEventListener('characteristicvaluechanged', handleNotifications);
         updateStatus(true);
         log("BLE Ready");
-        
-        // Auto-switch to keypad after short delay
         setTimeout(() => {
-            showMain();
+          showMain();
         }, 800);
-        
       } catch (e) {
         log("Err: " + e);
         updateStatus(false);
@@ -325,7 +403,6 @@
       const value = event.target.value;
       const decoder = new TextDecoder('utf-8');
       const msg = decoder.decode(value);
-      // log("Rx: " + msg); // Optional: reduce spam
       if (msg.startsWith("STATE=")) {
         const states = msg.substring(6).split(',');
         if (states.length >= 8) {
@@ -340,7 +417,7 @@
     }
     function updateBtnVisual(n, isActive) {
       const btn = document.getElementById('btn-' + n);
-      if(!btn) return;
+      if (!btn) return;
       if (isActive) {
         btn.classList.add('active');
       } else {
@@ -349,17 +426,18 @@
     }
     function send(n) {
       if (isEditMode) return;
-      
       const btnIndex = n - 1;
+      // const newState = !btnStates[btnIndex]; 
+      // Toggle logic relies on sync, but for responsiveness verify current state?
+      // Just toggle assuming user intent
       const newState = !btnStates[btnIndex];
-      // Optimistic upadate
-      btnStates[btnIndex] = newState; 
+      btnStates[btnIndex] = newState;
       updateBtnVisual(n, newState);
       if (rxChar) {
         const cmd = `${n}=${newState ? 1 : 0}`;
         rxChar.writeValue(new TextEncoder().encode(cmd))
           .catch(e => {
-              log("TX ERR");
+            log("TX ERR");
           });
       }
     }
@@ -372,7 +450,7 @@
           rxChar.writeValue(new TextEncoder().encode(cmd))
             .catch(e => log("TX ERR"));
           log(`Set ID: 0x${val}`);
-          alert(`CAN ID set to 0x${val}`); // Feedback
+          alert(`CAN ID set to 0x${val}`);
         } else {
           log("Not connected");
           alert("Not connected");
@@ -388,34 +466,25 @@
       if (isEditMode) {
         container.classList.add("editing");
         editBtn.textContent = "💾 Save Names";
-        editBtn.style.background = "#28a745";
-        
-        // Solution: When Edit Mode is active, we force switch to Main View
+        editBtn.className = "action-btn btn-green";
         showMain();
-        
-        // Change Gear Button to Save Button
         const gearBtn = document.getElementById("settings-btn");
         gearBtn.textContent = "💾";
-        gearBtn.onclick = toggleEditMode; // Clicking save toggles it off
-        
+        gearBtn.onclick = toggleEditMode;
       } else {
-        // Saving
         const inputs = document.querySelectorAll(".key-btn input");
         inputs.forEach((input, i) => {
           btnLabels[i] = input.value;
           const labelSpan = document.getElementById(`label-${i + 1}`);
-          if(labelSpan) labelSpan.textContent = input.value;
+          if (labelSpan) labelSpan.textContent = input.value;
         });
         localStorage.setItem("btnLabels", JSON.stringify(btnLabels));
         container.classList.remove("editing");
         editBtn.textContent = "✏️ Edit Names";
-        editBtn.style.background = "#555";
-        
-        // Restore Gear Button
+        editBtn.className = "action-btn btn-gray";
         const gearBtn = document.getElementById("settings-btn");
         gearBtn.textContent = "⚙️";
         gearBtn.onclick = showSettings;
-        
         alert("Names Saved");
       }
     }
