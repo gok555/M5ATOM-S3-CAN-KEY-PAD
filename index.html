@@ -1,4 +1,4 @@
-<!-- Version: v2.1 (Settings Integrated Edit) -->
+<!-- Version: v2.2 (Color Config + Clean UI) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -96,9 +96,11 @@
     }
     .key-btn {
       background: #333;
-      border: 2px solid #555;
+      /* Dynamic Border Color via CSS Var */
+      border: 3px solid var(--btn-color, #777);
       border-radius: 12px;
-      color: white;
+      /* Dynamic Text Color via CSS Var */
+      color: var(--btn-color, #fff);
       font-weight: bold;
       cursor: pointer;
       display: flex;
@@ -113,27 +115,25 @@
       user-select: none;
       -webkit-user-select: none;
       font-size: clamp(1rem, 5vw, 2rem);
+      transition: all 0.1s ease;
     }
     .key-btn:active,
     .key-btn.pressed {
       transform: scale(0.98);
-      background: #444;
+      /* background: #444; */
     }
     .key-btn.active {
-      background: #006000;
-      border-color: #00ff00;
-      color: #00ff00;
-      box-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
+      /* Dynamic BG Color when Active */
+      background: var(--btn-color, #006000);
+      /* border-color: #00ff00; */
+      /* Border stays same color or brightens? Keep same */
+      /* Active Text Color - White for contrast against colored BG */
+      color: #fff;
+      /* Dynamic Glow */
+      box-shadow: 0 0 15px var(--btn-color, rgba(0, 255, 0, 0.4));
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
     }
-    .key-btn span.sub {
-      font-size: 0.7em;
-      color: #bbb;
-      margin-top: 4px;
-      font-weight: normal;
-    }
-    .key-btn.active span.sub {
-      color: #8f8;
-    }
+    /* Removed .key-btn span.sub style */
     /* --- Settings View --- */
     #view-settings {
       background: #222;
@@ -250,7 +250,7 @@
       background: #333;
       padding: 5px 10px;
       border-radius: 6px;
-      gap: 10px;
+      gap: 8px;
     }
     .config-name-input {
       flex-grow: 1;
@@ -261,7 +261,24 @@
       border-radius: 4px;
       font-size: 0.9rem;
       min-width: 0;
-      /* Flex fix */
+    }
+    /* Color Picker Input */
+    input[type="color"] {
+      -webkit-appearance: none;
+      border: none;
+      width: 30px;
+      height: 30px;
+      border-radius: 4px;
+      padding: 0;
+      background: none;
+      cursor: pointer;
+    }
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+    input[type="color"]::-webkit-color-swatch {
+      border: 1px solid #555;
+      border-radius: 4px;
     }
     /* Mini Segmented Control */
     .mini-switch {
@@ -328,10 +345,6 @@
       <div class="control-row">
         <button id="connect-btn" class="action-btn btn-blue" onclick="connect()">🔵 Connect BLE</button>
       </div>
-      <!-- Edit Names -->
-      <div class="control-row">
-        <button id="edit-mode-btn" class="action-btn btn-gray" onclick="toggleEditMode()">✏️ Edit Names</button>
-      </div>
       <!-- ID Logic -->
       <div class="control-row">
         <div class="id-input-group">
@@ -352,7 +365,7 @@
         <button class="action-btn btn-gray" onclick="toggleFullscreen()">⛶ Toggle Fullscreen</button>
       </div>
       <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
-        Ver 2.1 (Settings Integrated Edit)<br>
+        Ver 2.2 (Color Config + Clean UI)<br>
         M5Atom S3 CAN
       </div>
     </div>
@@ -366,13 +379,14 @@
     // Data Storage
     let btnLabels = JSON.parse(localStorage.getItem("btnLabels")) ||
       Array.from({ length: 8 }, (_, i) => `BTN ${i + 1}`);
-    // New: Per-button mode. 'toggle' or 'momentary'. Default 'toggle'.
     let btnModes = JSON.parse(localStorage.getItem("btnModes")) ||
       Array(8).fill('toggle');
+    // New: Colors. Default is a nice bright Green "#00FF00" to match previous style
+    let btnColors = JSON.parse(localStorage.getItem("btnColors")) ||
+      Array(8).fill('#00FF00');
     let btnStates = Array(8).fill(false);
     let isConnected = false;
     // --- Pulse Logic Variables ---
-    // Track pulse times per button for sync suppression
     let lastPulseTimes = Array(8).fill(0);
     /* --- Config UI Generation --- */
     function renderConfigList() {
@@ -382,8 +396,11 @@
         const row = document.createElement('div');
         row.className = 'config-row';
         const isMom = (btnModes[i] === 'momentary');
-        // Input for Name + Switch for Mode
+        const color = btnColors[i];
+        // Layout: [Color Picker] [Name Input] [Mode Switch]
         row.innerHTML = `
+                <input type="color" value="${color}" onchange="updateBtnColor(${i}, this.value)">
+                
                 <input type="text" class="config-name-input" value="${label}" 
                     maxlength="8" onchange="updateBtnLabel(${i}, this.value)">
                 
@@ -398,16 +415,22 @@
     function changeBtnMode(index, mode) {
       btnModes[index] = mode;
       localStorage.setItem("btnModes", JSON.stringify(btnModes));
-      // Re-render to show selection state 
-      // (Note: this re-render might defocus input if editing name, typically fine as separate actions)
       renderConfigList();
     }
     function updateBtnLabel(index, newName) {
       btnLabels[index] = newName;
       localStorage.setItem("btnLabels", JSON.stringify(btnLabels));
-      // Update main view label immediately
       const labelSpan = document.getElementById(`label-${index + 1}`);
       if (labelSpan) labelSpan.textContent = newName;
+    }
+    function updateBtnColor(index, newColor) {
+      btnColors[index] = newColor;
+      localStorage.setItem("btnColors", JSON.stringify(btnColors));
+      // Update visual immediately
+      const btn = document.getElementById(`btn-${index + 1}`);
+      if (btn) {
+        btn.style.setProperty('--btn-color', newColor);
+      }
     }
     /* --- Fullscreen Logic --- */
     function toggleFullscreen() {
@@ -488,12 +511,9 @@
           const now = Date.now();
           states.forEach((s, i) => {
             if (i < 8) {
-              // --- SYNC PROTECTION FIX (Per Button) ---
-              // If this specific button is configured as 'momentary',
-              // check its specific pulse timestamp.
               if (btnModes[i] === 'momentary') {
                 if (now - lastPulseTimes[i] < 500) {
-                  return; // Ignore sync for this button
+                  return; // Ignore sync
                 }
               }
               btnStates[i] = (s === '1');
@@ -541,17 +561,12 @@
     function triggerPulse(n) {
       const idx = n - 1;
       const now = Date.now();
-      // Prevent rapid fire if needed, though usually fine.
-      // Update timestamp for sync suppression
       lastPulseTimes[idx] = now;
-      // 1. Send ON
       sendState(n, true);
-      // 2. Schedule OFF
       setTimeout(() => {
         sendState(n, false);
-        // Update timestamp again so suppression lasts after OFF
         lastPulseTimes[idx] = Date.now();
-      }, 150); // 150ms pulse
+      }, 150);
     }
     function setCanId() {
       const input = document.getElementById("can-id-input");
@@ -574,35 +589,22 @@
     /* Init Keypad */
     const container = document.getElementById("keypad");
     for (let i = 1; i <= 8; i++) {
+      // Init Button Elements
       const b = document.createElement("div");
       b.id = `btn-${i}`;
       b.className = "key-btn";
-      // Internal Structure - No input here anymore
-      b.innerHTML = `
-            <span id="label-${i + 1}" class="btn-label">${btnLabels[i]}</span>
-            <span class="sub">Byte ${i}</span>
-        `;
-      // Note: btnLabels[i] because loop variable i is 1-based in above context (wait.. loop is 1<=8, so i-1)
-      // Correction: original loop was 1-based.
-    }
-    // RE-INIT Loop Correctly
-    container.innerHTML = ""; // clear
-    for (let i = 1; i <= 8; i++) {
-      const b = document.createElement("div");
-      b.id = `btn-${i}`;
-      b.className = "key-btn";
-      // Display Label Only
+      // Clean innerHTML: Only show Label
       b.innerHTML = `
             <span id="label-${i}" class="btn-label">${btnLabels[i - 1]}</span>
-            <span class="sub">Byte ${i - 1}</span>
         `;
-      // Event Listeners for Interaction
+      // Apply Initial Color from saved settings
+      b.style.setProperty('--btn-color', btnColors[i - 1]);
       b.addEventListener('pointerdown', (e) => {
         handleInteraction(i, e);
       });
       container.appendChild(b);
     }
-    // Initial Render of Config List on Load (hidden but ready)
+    // Initial Render
     renderConfigList();
   </script>
 </body>
