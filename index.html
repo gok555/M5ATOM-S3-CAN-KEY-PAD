@@ -420,44 +420,61 @@
           <button id="set-id-btn" class="action-btn btn-orange" onclick="setCanId()">SET</button>
         </div>
       </div>
-    </div>
-    <!-- Mapping Presets (Ver 3.0) -->
-    <div class="control-row" style="margin-top: 10px; border-bottom:1px solid #444; padding-bottom:10px;">
-      <div style="color: #ccc; font-size: 0.9rem; margin-bottom: 5px;">Mapping Presets</div>
-      <div style="display:flex; gap:10px;">
-        <button class="action-btn btn-gray" onclick="applyPreset('normal')"
-          style="padding:10px; font-size:0.8rem;">Normal (1=0..8=7)</button>
-        <button class="action-btn btn-gray" onclick="applyPreset('reverse')"
-          style="padding:10px; font-size:0.8rem;">Reverse (1=7..8=0)</button>
+      <!-- Feedback Settings (Ver 3.1) -->
+      <div class="control-row" style="margin-top: 10px; border-bottom:1px solid #444; padding-bottom:10px;">
+        <div style="color: #ccc; font-size: 0.9rem; margin-bottom: 5px;">Feedback (Haptic/Audio)</div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label style="color:#ddd; font-size:0.9rem;">Vibra</label>
+          <div class="mini-switch">
+            <button class="mini-opt" id="btn-vibe-on" onclick="setVibe(true)">ON</button>
+            <button class="mini-opt" id="btn-vibe-off" onclick="setVibe(false)">OFF</button>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
+          <label style="color:#ddd; font-size:0.9rem;">Sound</label>
+          <div class="mini-switch">
+            <button class="mini-opt" id="btn-sound-on" onclick="setSound(true)">ON</button>
+            <button class="mini-opt" id="btn-sound-off" onclick="setSound(false)">OFF</button>
+          </div>
+        </div>
+      </div>
+      <!-- Mapping Presets (Ver 3.0) -->
+      <div class="control-row" style="margin-top: 10px; border-bottom:1px solid #444; padding-bottom:10px;">
+        <div style="color: #ccc; font-size: 0.9rem; margin-bottom: 5px;">Mapping Presets</div>
+        <div style="display:flex; gap:10px;">
+          <button class="action-btn btn-gray" onclick="applyPreset('normal')"
+            style="padding:10px; font-size:0.8rem;">Normal (1=0..8=7)</button>
+          <button class="action-btn btn-gray" onclick="applyPreset('reverse')"
+            style="padding:10px; font-size:0.8rem;">Reverse (1=7..8=0)</button>
+        </div>
+      </div>
+      <!-- Button Configurations -->
+      <div class="control-row" style="margin-top: 10px;">
+        <div style="color: #ccc; font-size: 0.9rem; margin-bottom: 5px; margin-left: 5px;">Button Configuration</div>
+        <div id="config-list-container" class="config-list">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+      <!-- Fullscreen -->
+      <div class="control-row" style="margin-top: 10px;">
+        <button class="action-btn btn-gray" onclick="toggleFullscreen()">⛶ Toggle Fullscreen</button>
+      </div>
+      <!-- Config Backup/Restore -->
+      <div class="control-row" style="margin-top: 20px; border-top: 1px solid #444; padding-top: 10px;">
+        <div style="color: #ccc; font-size: 0.9rem; margin-bottom: 5px; text-align: center;">Config Backup</div>
+        <div style="display:flex; gap:10px;">
+          <button class="action-btn btn-blue" onclick="exportConfig()" style="font-size:0.9rem;">⬇ Save Config</button>
+          <button class="action-btn btn-orange" onclick="importConfig()" style="font-size:0.9rem;">⬆ Load
+            Config</button>
+        </div>
+        <input type="file" id="import-file" style="display:none" accept=".json" onchange="handleFileSelect(this)">
+      </div>
+      <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
+        Ver 3.1 (Feedback + Endian)<br>
+        M5Atom S3 CAN
       </div>
     </div>
-    <!-- Button Configurations -->
-    <div class="control-row" style="margin-top: 10px;">
-      <div style="color: #ccc; font-size: 0.9rem; margin-bottom: 5px; margin-left: 5px;">Button Configuration</div>
-      <div id="config-list-container" class="config-list">
-        <!-- Populated by JS -->
-      </div>
-    </div>
-    <!-- Fullscreen -->
-    <div class="control-row" style="margin-top: 10px;">
-      <button class="action-btn btn-gray" onclick="toggleFullscreen()">⛶ Toggle Fullscreen</button>
-    </div>
-    <!-- Config Backup/Restore -->
-    <div class="control-row" style="margin-top: 20px; border-top: 1px solid #444; padding-top: 10px;">
-      <div style="color: #ccc; font-size: 0.9rem; margin-bottom: 5px; text-align: center;">Config Backup</div>
-      <div style="display:flex; gap:10px;">
-        <button class="action-btn btn-blue" onclick="exportConfig()" style="font-size:0.9rem;">⬇ Save Config</button>
-        <button class="action-btn btn-orange" onclick="importConfig()" style="font-size:0.9rem;">⬆ Load
-          Config</button>
-      </div>
-      <input type="file" id="import-file" style="display:none" accept=".json" onchange="handleFileSelect(this)">
-    </div>
-    <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
-      Ver 3.0 (Per-Button Endian)<br>
-      M5Atom S3 CAN
-    </div>
-  </div>
-  <pre id="log">Logs...</pre>
+    <pre id="log">Logs...</pre>
   </div>
   <script>
     const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
@@ -476,6 +493,11 @@
     // Ver 3.0: Per-Button Endianness
     let btnEndian = JSON.parse(localStorage.getItem("btnEndian")) ||
       Array(8).fill('big');
+    // Ver 3.1: Feedback
+    let cfgVibe = JSON.parse(localStorage.getItem("cfgVibe")) !== false; // Default true
+    let cfgSound = JSON.parse(localStorage.getItem("cfgSound")) || false; // Default false
+    // Audio
+    let audioCtx = null;
     let btnColors = JSON.parse(localStorage.getItem("btnColors")) ||
       Array(8).fill('#00FF00');
     let btnStates = Array(8).fill(false);
@@ -581,6 +603,57 @@
       localStorage.setItem("btnEndian", JSON.stringify(btnEndian));
       renderConfigList();
     }
+    /* --- Feedback Logic (Ver 3.1) --- */
+    function setVibe(state) {
+      cfgVibe = state;
+      localStorage.setItem("cfgVibe", JSON.stringify(cfgVibe));
+      updateFeedbackUI();
+    }
+    function setSound(state) {
+      cfgSound = state;
+      localStorage.setItem("cfgSound", JSON.stringify(cfgSound));
+      updateFeedbackUI();
+      if (state) initAudio();
+    }
+    function updateFeedbackUI() {
+      const vo = document.getElementById('btn-vibe-on');
+      const vf = document.getElementById('btn-vibe-off');
+      if (vo && vf) {
+        vo.className = `mini-opt ${cfgVibe ? 'selected' : ''}`;
+        vf.className = `mini-opt ${!cfgVibe ? 'selected' : ''}`;
+      }
+      const so = document.getElementById('btn-sound-on');
+      const sf = document.getElementById('btn-sound-off');
+      if (so && sf) {
+        so.className = `mini-opt ${cfgSound ? 'selected' : ''}`;
+        sf.className = `mini-opt ${!cfgSound ? 'selected' : ''}`;
+      }
+    }
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      } else if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+    function triggerFeedback() {
+      // Vibe
+      if (cfgVibe && navigator.vibrate) {
+        navigator.vibrate(15);
+      }
+      // Sound
+      if (cfgSound && audioCtx) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'square';
+        osc.frequency.value = 2000;
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.05);
+      }
+    }
     /* --- Fullscreen Logic --- */
     function toggleFullscreen() {
       if (!document.fullscreenElement) {
@@ -603,6 +676,7 @@
     /* --- Navigation --- */
     function showSettings() {
       renderConfigList();
+      updateFeedbackUI();
       document.getElementById("view-main").classList.remove("active");
       document.getElementById("view-settings").classList.add("active");
     }
@@ -677,6 +751,7 @@
     }
     // --- CONNECT FLOW (Composite Action) ---
     async function handleStartConnect() {
+      initAudio();
       // 1. Enter Fullscreen (User Gesture #1)
       enterFullscreen();
       // 2. Start BLE Connect (User Gesture #1 continues usually ok in async but safer to do synchronous start if possible, 
@@ -781,6 +856,7 @@
     // --- Interaction Handlers ---
     function handleInteraction(n, e) {
       if (e) e.preventDefault(); // Prevent double firing (touch+click)
+      triggerFeedback();
       const idx = n - 1;
       const isMomentary = (btnModes[idx] === 'momentary');
       if (isMomentary) {
@@ -835,6 +911,8 @@
         btnOnVals: btnOnVals,
         btnOffVals: btnOffVals,
         btnEndian: btnEndian,
+        cfgVibe: cfgVibe,
+        cfgSound: cfgSound,
         canId: canIdVal
       };
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
@@ -880,6 +958,14 @@
           if (config.btnEndian && Array.isArray(config.btnEndian)) {
             btnEndian = config.btnEndian;
             localStorage.setItem("btnEndian", JSON.stringify(btnEndian));
+          }
+          if (config.cfgVibe !== undefined) {
+            cfgVibe = config.cfgVibe;
+            localStorage.setItem("cfgVibe", JSON.stringify(cfgVibe));
+          }
+          if (config.cfgSound !== undefined) {
+            cfgSound = config.cfgSound;
+            localStorage.setItem("cfgSound", JSON.stringify(cfgSound));
           }
           if (config.canId) {
             document.getElementById("can-id-input").value = config.canId;
