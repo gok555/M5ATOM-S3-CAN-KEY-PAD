@@ -1,4 +1,4 @@
-<!-- Version: v1.4 -->
+<!-- Version: v1.4.1 (ID Select) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -44,10 +44,53 @@
       width: 100%;
       max-width: 320px;
       display: flex;
-      justify-content: space-between;
+      flex-direction: column;
+      /* Stack controls vertically */
+      align-items: center;
       margin-bottom: 20px;
       gap: 10px;
       transition: max-width 0.3s;
+    }
+    .control-row {
+      display: flex;
+      width: 100%;
+      gap: 10px;
+      justify-content: space-between;
+    }
+    .id-input-group {
+      display: flex;
+      width: 100%;
+      gap: 10px;
+      align-items: center;
+      background: #333;
+      padding: 5px;
+      border-radius: 8px;
+    }
+    .id-input-group label {
+      color: #aaa;
+      font-size: 0.9rem;
+      padding-left: 5px;
+      white-space: nowrap;
+    }
+    #can-id-input {
+      background: #222;
+      border: 1px solid #555;
+      color: white;
+      padding: 8px;
+      flex: 1;
+      border-radius: 4px;
+      text-align: center;
+      font-family: monospace;
+      font-size: 1rem;
+    }
+    #set-id-btn {
+      background: #e67e22;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
     }
     #connect-btn {
       flex: 2;
@@ -176,8 +219,15 @@
     <div class="info">Auto Reconnect Sync</div>
   </div>
   <div class="controls">
-    <button id="connect-btn" onclick="connect()">🔵 Connect BLE</button>
-    <button id="edit-mode-btn" onclick="toggleEditMode()">✏️ Edit Names</button>
+    <div class="control-row">
+      <button id="connect-btn" onclick="connect()">🔵 Connect BLE</button>
+      <button id="edit-mode-btn" onclick="toggleEditMode()">✏️ Edit Names</button>
+    </div>
+    <div class="id-input-group">
+      <label>CAN ID (Hex): 0x</label>
+      <input type="text" id="can-id-input" value="100" maxlength="3">
+      <button id="set-id-btn" onclick="setCanId()">SET</button>
+    </div>
   </div>
   <div id="keypad"></div>
   <pre id="log">Logs will appear here...</pre>
@@ -252,6 +302,23 @@
         rxChar.writeValue(new TextEncoder().encode(cmd))
           .catch(e => log("TX ERR: " + e));
         log(`Tx: ${cmd} (${btnLabels[btnIndex]})`);
+      }
+    }
+    function setCanId() {
+      const input = document.getElementById("can-id-input");
+      let val = input.value.trim();
+      // Simple validation for hex
+      if (/^[0-9A-Fa-f]+$/.test(val)) {
+        if (rxChar) {
+          const cmd = `ID=${val}`;
+          rxChar.writeValue(new TextEncoder().encode(cmd))
+            .catch(e => log("TX ERR: " + e));
+          log(`Set ID: 0x${val}`);
+        } else {
+          log("Not connected");
+        }
+      } else {
+        log("Invalid Hex ID");
       }
     }
     function toggleEditMode() {
