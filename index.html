@@ -1,4 +1,4 @@
-<!-- Version: v2.7 (Custom CAN Values) -->
+<!-- Version: v2.8 (Byte Order Support) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -417,6 +417,16 @@
           <button id="set-id-btn" class="action-btn btn-orange" onclick="setCanId()">SET</button>
         </div>
       </div>
+      <!-- Byte Order (Ver 2.8) -->
+      <div class="control-row" style="margin-top: 10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#333; padding:10px; border-radius:8px;">
+           <span style="color:#ddd; font-weight:bold;">Byte Order:</span>
+           <div class="mini-switch" style="transform: scale(1.2);">
+              <button id="bo-normal" class="mini-opt" onclick="setByteOrder('normal')">Normal (0-7)</button>
+              <button id="bo-reverse" class="mini-opt" onclick="setByteOrder('reverse')">Reverse (7-0)</button>
+           </div>
+        </div>
+      </div>
       <!-- Button Configurations -->
       <div class="control-row" style="margin-top: 10px;">
         <div style="color: #ccc; font-size: 0.9rem; margin-bottom: 5px; margin-left: 5px;">Button Configuration</div>
@@ -439,7 +449,7 @@
         <input type="file" id="import-file" style="display:none" accept=".json" onchange="handleFileSelect(this)">
       </div>
       <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
-        Ver 2.7 (Custom CAN Values)<br>
+        Ver 2.8 (Byte Order Support)<br>
         M5Atom S3 CAN
       </div>
     </div>
@@ -463,6 +473,9 @@
       Array(8).fill('#00FF00');
     let btnStates = Array(8).fill(false);
     let isConnected = false;
+    
+    // Ver 2.8
+    let byteOrder = localStorage.getItem("byteOrder") || 'normal'; // 'normal' or 'reverse'
     // --- Pulse Logic Variables ---
     let lastPulseTimes = Array(8).fill(0);
     // --- Watchdog ---
@@ -539,6 +552,23 @@
       if (btn) {
         btn.style.setProperty('--btn-color', newColor);
       }
+    }
+    /* --- Byte Order Logic (Ver 2.8) --- */
+    function setByteOrder(mode) {
+       byteOrder = mode;
+       localStorage.setItem("byteOrder", mode);
+       updateByteOrderVisual();
+    }
+    function updateByteOrderVisual() {
+       const btnNorm = document.getElementById('bo-normal');
+       const btnRev = document.getElementById('bo-reverse');
+       if(byteOrder === 'normal') {
+          btnNorm.classList.add('selected');
+          btnRev.classList.remove('selected');
+       } else {
+          btnNorm.classList.remove('selected');
+          btnRev.classList.add('selected');
+       }
     }
     /* --- Fullscreen Logic --- */
     function toggleFullscreen() {
@@ -690,9 +720,19 @@
               }
               // Version 2.7 Fix: Compare with configured ON value (decimal)
               const receivedVal = parseInt(s, 10);
-              const onVal = parseInt(btnOnVals[i], 16);
-              btnStates[i] = (receivedVal === onVal);
-              updateBtnVisual(i + 1, btnStates[i]);
+              
+              // Ver 2.8: Map received index BACK to button index for visual update
+              // If Normal: i=0 -> Btn 1.
+              // If Reverse: i=0 -> Btn 8. (Because Btn 8 wrote to index 0)
+              let btnIndexForVisual = i; 
+              if (byteOrder === 'reverse') {
+                 // Reverse Mapping: Data[0] is Btn 8, Data[7] is Btn 1
+                 btnIndexForVisual = 7 - i;
+              }
+              const onVal = parseInt(btnOnVals[btnIndexForVisual], 16);
+              // Update state for the correct button
+              btnStates[btnIndexForVisual] = (receivedVal === onVal);
+              updateBtnVisual(btnIndexForVisual + 1, btnStates[btnIndexForVisual]);
             }
           });
         }
@@ -719,7 +759,14 @@
         // Version 2.7: Send Configured Hex Value
         const valStr = state ? btnOnVals[btnIndex] : btnOffVals[btnIndex];
         const valInt = parseInt(valStr, 16);
-        const cmd = `${n}=${valInt}`;
+        
+        // Ver 2.8: Map Button Index to Target Data Byte Index
+        let targetIndex = btnIndex; // Default 0-7
+        if (byteOrder === 'reverse') {
+            targetIndex = 7 - btnIndex;
+        }
+        // Protocol uses 1-based index for target byte (1-8)
+        const cmd = `${targetIndex + 1}=${valInt}`;
         rxChar.writeValue(new TextEncoder().encode(cmd))
           .catch(e => {
             // log("TX ERR");
@@ -782,7 +829,8 @@
         btnColors: btnColors,
         btnOnVals: btnOnVals,
         btnOffVals: btnOffVals,
-        canId: canIdVal
+        canId: canIdVal,
+        byteOrder: byteOrder // Ver 2.8
       };
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
       const downloadAnchor = document.createElement('a');
@@ -830,10 +878,15 @@
             // User must click SET if they want to push valid ID to device immediately, 
             // or it will be used next time/manually.
           }
+          if (config.byteOrder) {
+             byteOrder = config.byteOrder;
+             localStorage.setItem("byteOrder", byteOrder);
+          }
           log("Config Loaded");
           alert("Configuration Loaded Successfully");
           // Refresh UI
           renderConfigList();
+          updateByteOrderVisual(); // Ver 2.8
           // Refresh Keypad Visuals (Colors/Labels)
           const keypad = document.getElementById("keypad");
           keypad.innerHTML = ""; // Clear and rebuild
@@ -872,6 +925,7 @@
     }
     // Initial Render
     renderConfigList();
+    updateByteOrderVisual(); // Ver 2.8
     // Init Status (Show Overlay)
     updateStatus(false);
   </script>
