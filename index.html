@@ -308,26 +308,33 @@
       justify-content: space-between;
       align-items: center;
       background: #333;
-      padding: 5px 10px;
+      padding: 8px 10px;
+      /* Increased padding */
       border-radius: 6px;
-      gap: 8px;
+      gap: 5px;
+      flex-wrap: wrap;
+      /* Allow wrapping on very small screens */
     }
     .config-name-input {
-      flex-grow: 1;
+      flex: 1;
+      /* Allow growing */
       background: #222;
       border: 1px solid #555;
       color: white;
-      padding: 5px;
+      padding: 8px;
+      /* Larger padding for touch */
       border-radius: 4px;
-      font-size: 0.9rem;
-      min-width: 0;
+      font-size: 16px;
+      /* Prevent IOS zoom & better readability */
+      min-width: 60px;
     }
     /* Color Picker Input */
     input[type="color"] {
       -webkit-appearance: none;
       border: none;
-      width: 30px;
-      height: 30px;
+      width: 36px;
+      /* Larger */
+      height: 36px;
       border-radius: 4px;
       padding: 0;
       background: none;
@@ -346,15 +353,18 @@
       background: #222;
       border-radius: 4px;
       padding: 2px;
-      gap: 2px;
+      gap: 4px;
+      /* Increased gap */
       flex-shrink: 0;
     }
     .mini-opt {
       border: none;
       background: none;
       color: #666;
-      font-size: 0.75rem;
-      padding: 4px 8px;
+      font-size: 0.85rem;
+      /* Larger font */
+      padding: 6px 10px;
+      /* Larger padding */
       border-radius: 3px;
       cursor: pointer;
     }
@@ -551,7 +561,7 @@
                 </div>
                 
                 <input type="text" class="config-name-input" value="${label}" 
-                    maxlength="8" onchange="updateBtnLabel(${i}, this.value)" style="width: 70px;">
+                    maxlength="8" onchange="updateBtnLabel(${i}, this.value)">
                 <div style="display:flex; flex-direction:column; gap:2px;">
                   <div style="display:flex; gap:2px; align-items:center;">
                     <span style="font-size:0.7rem; color:#aaa;">ON:0x</span>
