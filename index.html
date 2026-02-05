@@ -759,7 +759,6 @@
         // Show Keypad, Hide Overlay
         overlay.style.display = "none";
         keypad.classList.add("visible");
-        document.getElementById("main-toolbar").style.display = "flex";
         // Show Disconnect option in settings
         discRow.style.display = "flex";
         // Start waiting for heartbeat
@@ -773,7 +772,6 @@
         // Hide Keypad, Show Overlay
         overlay.style.display = "flex";
         keypad.classList.remove("visible");
-        document.getElementById("main-toolbar").style.display = "none";
         // Hide Disconnect option
         discRow.style.display = "none";
         document.getElementById("can-status-display").style.display = "none";
