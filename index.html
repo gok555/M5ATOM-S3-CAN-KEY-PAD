@@ -847,8 +847,9 @@
       initAudio();
       // 1. Enter Fullscreen (User Gesture #1)
       enterFullscreen();
-      // 2. Start BLE Connect (User Gesture #1 continues usually ok in async but safer to do synchronous start if possible, 
-      // but BLE requires promise. Both share the same 'click' event context usually.)
+      // 2. Request Wake Lock (User Gesture #2 - required for Security)
+      await requestWakeLock();
+      // 3. Start BLE Connect
       await connect();
     }
     async function connect() {
@@ -871,8 +872,6 @@
         await txChar.startNotifications();
         txChar.addEventListener('characteristicvaluechanged', handleNotifications);
         updateStatus(true);
-        // Request Wake Lock on connect (Ver 1.1)
-        await requestWakeLock();
       } catch (error) {
         console.error(error);
         alert("Connection Failed: " + error);
