@@ -1337,6 +1337,15 @@
             btnAuth = Array(8).fill(false);
             localStorage.setItem("btnAuth", JSON.stringify(btnAuth));
           }
+          // Ver 4.4: Import Delay Arrays
+          if (config.btnOnDelays && Array.isArray(config.btnOnDelays)) {
+            btnOnDelays = config.btnOnDelays;
+            localStorage.setItem("btnOnDelays", JSON.stringify(btnOnDelays));
+          }
+          if (config.btnOffDelays && Array.isArray(config.btnOffDelays)) {
+            btnOffDelays = config.btnOffDelays;
+            localStorage.setItem("btnOffDelays", JSON.stringify(btnOffDelays));
+          }
           // Ver 4.4: Handle missing delay arrays
           if (!btnOnDelays || !Array.isArray(btnOnDelays)) {
             btnOnDelays = config.btnOnDelays || Array(8).fill(0);
