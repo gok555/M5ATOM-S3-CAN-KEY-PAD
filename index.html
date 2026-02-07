@@ -1395,6 +1395,70 @@
     }
     // Initial Render
     renderKeypadGrid();
+    /* --- Feedback Logic (Ver 3.1) --- */
+    function updateFeedbackUI() {
+      const btnVibeOn = document.getElementById("btn-vibe-on");
+      const btnVibeOff = document.getElementById("btn-vibe-off");
+      const btnSoundOn = document.getElementById("btn-sound-on");
+      const btnSoundOff = document.getElementById("btn-sound-off");
+      if (btnVibeOn && btnVibeOff) {
+        if (cfgVibe) {
+          btnVibeOn.classList.add("selected");
+          btnVibeOff.classList.remove("selected");
+        } else {
+          btnVibeOn.classList.remove("selected");
+          btnVibeOff.classList.add("selected");
+        }
+      }
+      if (btnSoundOn && btnSoundOff) {
+        if (cfgSound) {
+          btnSoundOn.classList.add("selected");
+          btnSoundOff.classList.remove("selected");
+        } else {
+          btnSoundOn.classList.remove("selected");
+          btnSoundOff.classList.add("selected");
+        }
+      }
+    }
+    function setVibe(enabled) {
+      cfgVibe = enabled;
+      localStorage.setItem("cfgVibe", JSON.stringify(cfgVibe));
+      updateFeedbackUI();
+    }
+    function setSound(enabled) {
+      cfgSound = enabled;
+      localStorage.setItem("cfgSound", JSON.stringify(cfgSound));
+      updateFeedbackUI();
+      updateMainSoundIcon();
+      if (enabled) initAudio();
+    }
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+    function triggerFeedback() {
+      // Vibrate
+      if (cfgVibe && navigator.vibrate) {
+        navigator.vibrate(15);
+      }
+      // Sound
+      if (cfgSound && audioCtx) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.05);
+      }
+    }
     // Initial Render
     renderConfigList();
     // Init Status (Show Overlay)
@@ -1414,6 +1478,8 @@
     updateMainSoundIcon();
     async function handleStartConnect() {
       try {
+        // Init Audio Context (User Gesture)
+        initAudio();
         // 1. Request Fullscreen (Interaction requirement)
         toggleFullscreen();
         // 2. Connect Bluetooth
