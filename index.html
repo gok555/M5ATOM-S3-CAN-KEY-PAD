@@ -1,4 +1,4 @@
-<!-- Version: 4.5 (Long Press) -->
+<!-- Version: 4.6 (Fix Bio Lockout) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -413,7 +413,7 @@
     <div id="connect-overlay">
       <!-- Changed to call handleStartConnect() for composite action -->
       <button id="start-btn" onclick="handleStartConnect()">CONNECT<br>START</button>
-      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.5 (Long Press)</div>
+      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.6 (Fix Bio Lockout)</div>
     </div>
     <div id="keypad"></div>
   </div>
@@ -498,7 +498,7 @@
         <input type="file" id="import-file" style="display:none" accept=".json" onchange="handleFileSelect(this)">
       </div>
       <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
-        Ver 4.5 (Long Press)<br>
+        Ver 4.6 (Fix Bio Lockout)<br>
         M5Atom S3 CAN
       </div>
     </div>
@@ -1336,6 +1336,17 @@
           if (!btnAuth || !Array.isArray(btnAuth)) {
             btnAuth = Array(8).fill(false);
             localStorage.setItem("btnAuth", JSON.stringify(btnAuth));
+          }
+          // Ver 4.6 Safety: If NO biometric credential exists on this device, FORCE UNLOCK all buttons
+          // to prevent lockout from imported config.
+          if (!authCredentialId) {
+            const hasLockedBtn = btnAuth.some(b => b === true);
+            if (hasLockedBtn) {
+              btnAuth = Array(8).fill(false);
+              localStorage.setItem("btnAuth", JSON.stringify(btnAuth));
+              log("Safety: Locks removed (No Credential)");
+              alert("⚠️ Configuration Loaded, but Button Locks were disabled because no Biometric Registration was found on this device.");
+            }
           }
           // Ver 4.4: Import Delay Arrays
           if (config.btnOnDelays && Array.isArray(config.btnOnDelays)) {
