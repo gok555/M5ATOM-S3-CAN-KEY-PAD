@@ -527,6 +527,9 @@
     // Ver 3.0: Per-Button Endianness
     let btnEndian = JSON.parse(localStorage.getItem("btnEndian")) ||
       Array(8).fill('big');
+    // Ver 4.0: Biometric Auth
+    let btnAuth = JSON.parse(localStorage.getItem("btnAuth")) ||
+      Array(8).fill(false);
     // Ver 3.1: Feedback
     let cfgVibe = JSON.parse(localStorage.getItem("cfgVibe")) !== false; // Default true
     let cfgSound = JSON.parse(localStorage.getItem("cfgSound")) !== false; // Default true (Changed from false)
@@ -557,6 +560,7 @@
         const color = btnColors[i];
         const endian = btnEndian[i];
         const icon = btnIcons[i];
+        const isAuth = btnAuth[i]; // Ver 4.0
         row.innerHTML = `
                 <div style="display:flex; flex-direction:column; gap:2px; align-items:center;">
                   <button class="mini-opt" style="width:30px; height:30px; border:1px solid #555; padding:2px;" onclick="openIconPicker(${i})">
@@ -593,6 +597,14 @@
                      <button class="mini-opt ${endian === 'big' ? 'selected' : ''}" onclick="updateBtnEndian(${i}, 'big')">B</button>
                      <button class="mini-opt ${endian === 'little' ? 'selected' : ''}" onclick="updateBtnEndian(${i}, 'little')">L</button>
                    </div>
+                   </div>
+                 </div>
+                 <!-- Auth Toggle (Ver 4.0) -->
+                 <div style="display:flex; flex-direction:column; align-items:center; margin-left:5px;">
+                   <span style="font-size:0.6rem; color:#888;">Lock</span>
+                   <button class="mini-opt ${isAuth ? 'selected' : ''}" style="width:30px; height:30px; border:1px solid #555; padding:2px;" onclick="toggleBtnAuth(${i})">
+                     ${isAuth ? '🔒' : '🔓'}
+                   </button>
                  </div>
             `;
         container.appendChild(row);
@@ -647,6 +659,39 @@
       }
       localStorage.setItem("btnEndian", JSON.stringify(btnEndian));
       renderConfigList();
+    }
+    /* --- Auth Logic (Ver 4.0) --- */
+    function toggleBtnAuth(index) {
+      btnAuth[index] = !btnAuth[index];
+      localStorage.setItem("btnAuth", JSON.stringify(btnAuth));
+      renderConfigList();
+    }
+    async function checkBiometricAuth() {
+      if (!window.PublicKeyCredential) {
+        alert("Biometric authentication not supported on this device/browser.");
+        return false;
+      }
+      try {
+        // Challenge must be a buffer
+        const challenge = new Uint8Array(32);
+        window.crypto.getRandomValues(challenge);
+        const publicKeyCredentialRequestOptions = {
+          challenge: challenge,
+          timeout: 60000,
+          userVerification: "required",
+          rpId: window.location.hostname,
+        };
+        const credential = await navigator.credentials.get({
+          publicKey: publicKeyCredentialRequestOptions
+        });
+        if (credential) {
+          return true;
+        }
+      } catch (err) {
+        console.error("Auth failed", err);
+        // Alert user or just return false
+      }
+      return false;
     }
     /* --- Feedback Logic (Ver 3.1) --- */
     function setVibe(state) {
@@ -964,10 +1009,20 @@
       return r;
     }
     // --- Interaction Handlers ---
-    function handleInteraction(n, e) {
+    async function handleInteraction(n, e) {
       if (e) e.preventDefault(); // Prevent double firing (touch+click)
-      triggerFeedback();
       const idx = n - 1;
+      // Ver 4.0: Check Auth
+      if (btnAuth[idx]) {
+        const authResult = await checkBiometricAuth();
+        if (!authResult) {
+          // Auth failed
+          // Visual feedback?
+          alert("🔒 Authentication Failed");
+          return;
+        }
+      }
+      triggerFeedback();
       const isMomentary = (btnModes[idx] === 'momentary');
       if (isMomentary) {
         triggerPulse(n);
@@ -1016,6 +1071,9 @@
         btnOffVals: btnOffVals,
         btnEndian: btnEndian,
         btnIcons: btnIcons,
+        cfgVibe: cfgVibe,
+        btnIcons: btnIcons,
+        btnAuth: btnAuth, // Ver 4.0
         cfgVibe: cfgVibe,
         cfgSound: cfgSound,
         canId: canIdVal
@@ -1068,6 +1126,10 @@
             btnIcons = config.btnIcons;
             localStorage.setItem("btnIcons", JSON.stringify(btnIcons));
           }
+          if (config.btnAuth && Array.isArray(config.btnAuth)) { // Ver 4.0
+            btnAuth = config.btnAuth;
+            localStorage.setItem("btnAuth", JSON.stringify(btnAuth));
+          }
           if (config.cfgVibe !== undefined) {
             cfgVibe = config.cfgVibe;
             localStorage.setItem("cfgVibe", JSON.stringify(cfgVibe));
@@ -1083,6 +1145,11 @@
             // Note: We don't auto-send ID to device here to avoid unexpected traffic. 
             // User must click SET if they want to push valid ID to device immediately, 
             // or it will be used next time/manually.
+          }
+          // Ver 4.0 Handle missing auth array in old configs
+          if (!btnAuth || !Array.isArray(btnAuth)) {
+            btnAuth = Array(8).fill(false);
+            localStorage.setItem("btnAuth", JSON.stringify(btnAuth));
           }
           log("Config Loaded");
           alert("Configuration Loaded Successfully");
