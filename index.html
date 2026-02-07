@@ -1165,24 +1165,26 @@
         e.preventDefault();
         // e.target.setPointerCapture(e.pointerId); 
       }
+      // Instant Feedback
+      triggerFeedback();
+      const btnEl = document.getElementById(`btn-${n}`);
+      if (btnEl) btnEl.classList.add('pressing'); // Instant Visual Cue
       const idx = n - 1;
       // Ver 4.0: Check Auth
       if (btnAuth[idx]) {
         const authResult = await checkBiometricAuth();
         if (!authResult) {
+          if (btnEl) btnEl.classList.remove('pressing'); // Remove cue if failed
           alert("🔒 Authentication Failed");
           return;
         }
       }
-      triggerFeedback(); // Feedback on press start
       // Calc Delay needed
       // If currently OFF (false), we want to turn ON -> Use OnDelay
       // If currently ON (true), we want to turn OFF -> Use OffDelay
       const currentState = btnStates[idx];
       const targetState = !currentState;
       const delay = targetState ? btnOnDelays[idx] : btnOffDelays[idx];
-      const btnEl = document.getElementById(`btn-${n}`);
-      if (btnEl) btnEl.classList.add('pressing'); // Add visual cue
       if (delay > 0) {
         // Start Timer
         holdTimers[idx] = setTimeout(() => {
