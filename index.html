@@ -1,4 +1,4 @@
-<!-- Version: 4.4 (Button Delay) -->
+<!-- Version: 4.5 (Long Press) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -185,6 +185,11 @@
       /* Dynamic Glow */
       box-shadow: 0 0 15px var(--btn-color, rgba(0, 255, 0, 0.4));
       text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
+    /* Pressing state (Visual feedback for Long Press) */
+    .key-btn.pressing {
+      transform: scale(0.95);
+      opacity: 0.8;
     }
     /* --- Settings View --- */
     #view-settings {
@@ -408,7 +413,7 @@
     <div id="connect-overlay">
       <!-- Changed to call handleStartConnect() for composite action -->
       <button id="start-btn" onclick="handleStartConnect()">CONNECT<br>START</button>
-      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.4 (Button Delay)</div>
+      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.5 (Long Press)</div>
     </div>
     <div id="keypad"></div>
   </div>
@@ -493,7 +498,7 @@
         <input type="file" id="import-file" style="display:none" accept=".json" onchange="handleFileSelect(this)">
       </div>
       <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
-        Ver 4.4 (Button Delay)<br>
+        Ver 4.5 (Long Press)<br>
         M5Atom S3 CAN
       </div>
     </div>
@@ -557,6 +562,8 @@
     let isConnected = false;
     // --- Pulse Logic Variables ---
     let lastPulseTimes = Array(8).fill(0);
+    // Ver 4.5: Long Press Timers
+    let holdTimers = Array(8).fill(null);
     // --- Watchdog ---
     let watchdogTimer = null;
     const WATCHDOG_TIMEOUT = 3500; // 3.5s (Device sends every 1s)
@@ -1150,67 +1157,74 @@
       }
       return r;
     }
-    // Ver 4.4: Delayed Send Logic
-    function sendStateDelayed(n, state) {
-      const idx = n - 1;
-      const delay = state ? btnOnDelays[idx] : btnOffDelays[idx];
-      if (delay > 0) {
-        setTimeout(() => {
-          sendState(n, state);
-        }, delay * 1000);
-      } else {
-        sendState(n, state);
-      }
-    }
+    // Ver 4.5: Long Press Logic
+    // Replaces sendStateDelayed
     // --- Interaction Handlers ---
-    async function handleInteraction(n, e) {
-      if (e) e.preventDefault(); // Prevent double firing (touch+click)
+    async function handlePointerDown(n, e) {
+      if (e) {
+        e.preventDefault();
+        // e.target.setPointerCapture(e.pointerId); 
+      }
       const idx = n - 1;
       // Ver 4.0: Check Auth
       if (btnAuth[idx]) {
         const authResult = await checkBiometricAuth();
         if (!authResult) {
-          // Auth failed
           alert("🔒 Authentication Failed");
           return;
         }
       }
-      triggerFeedback();
+      triggerFeedback(); // Feedback on press start
+      // Calc Delay needed
+      // If currently OFF (false), we want to turn ON -> Use OnDelay
+      // If currently ON (true), we want to turn OFF -> Use OffDelay
+      const currentState = btnStates[idx];
+      const targetState = !currentState;
+      const delay = targetState ? btnOnDelays[idx] : btnOffDelays[idx];
+      const btnEl = document.getElementById(`btn-${n}`);
+      if (btnEl) btnEl.classList.add('pressing'); // Add visual cue
+      if (delay > 0) {
+        // Start Timer
+        holdTimers[idx] = setTimeout(() => {
+          executeAction(n);
+          holdTimers[idx] = null;
+          if (btnEl) btnEl.classList.remove('pressing');
+        }, delay * 1000);
+      } else {
+        // Immediate
+        executeAction(n);
+        if (btnEl) btnEl.classList.remove('pressing');
+      }
+    }
+    function handlePointerUp(n, e) {
+      if (e) e.preventDefault();
+      const idx = n - 1;
+      // Cancel Timer if it exists
+      if (holdTimers[idx]) {
+        clearTimeout(holdTimers[idx]);
+        holdTimers[idx] = null;
+      }
+      const btnEl = document.getElementById(`btn-${n}`);
+      if (btnEl) btnEl.classList.remove('pressing');
+    }
+    function executeAction(n) {
+      const idx = n - 1;
       const isMomentary = (btnModes[idx] === 'momentary');
       if (isMomentary) {
         triggerPulse(n);
       } else {
         // Toggle Mode
         const newState = !btnStates[idx];
-        // Immediate visual update? No, user wants "Response Lag" -> Visual should match the delay
-        // sendStateDelayed handles visual update too via sendState
-        sendStateDelayed(n, newState);
+        sendState(n, newState);
       }
     }
     function triggerPulse(n) {
       const idx = n - 1;
-      // const now = Date.now();
-      // lastPulseTimes[idx] = now;
-      // Momentary: ON -> Delay -> SEND ON -> Wait 150ms -> SEND OFF (Delayed by OffDelay?)
-      // Current Logic: sendState(true); setTimeout(sendState(false), 150);
-      // With Delays:
-      // 1. Wait OnDelay
-      // 2. Send ON
-      // 3. Wait 150ms (Pulse Width)
-      // 4. Wait OffDelay
-      // 5. Send OFF
-      const onDelay = btnOnDelays[idx] * 1000;
-      const offDelay = btnOffDelays[idx] * 1000;
+      sendState(n, true); // ON
       setTimeout(() => {
-        sendState(n, true); // ON
-        setTimeout(() => {
-          // Only after Pulse Width, then apply OFF Delay
-          setTimeout(() => {
-            sendState(n, false); // OFF
-          }, offDelay);
-        }, 150);
-      }, onDelay);
-      lastPulseTimes[idx] = Date.now(); // Update timestamp immediately or after?
+        sendState(n, false); // OFF
+      }, 150);
+      lastPulseTimes[idx] = Date.now();
     }
     function setCanId() {
       const el = document.getElementById("can-id-input");
@@ -1371,9 +1385,11 @@
         }
         b.innerHTML = innerHTML;
         b.style.setProperty('--btn-color', btnColors[i - 1]);
-        b.addEventListener('pointerdown', (e) => {
-          handleInteraction(i, e);
-        });
+        // Ver 4.5: Pointer Events for Long Press
+        b.addEventListener('pointerdown', (e) => handlePointerDown(i, e));
+        b.addEventListener('pointerup', (e) => handlePointerUp(i, e));
+        b.addEventListener('pointerleave', (e) => handlePointerUp(i, e)); // Treat leave as cancel/up
+        b.addEventListener('contextmenu', (e) => e.preventDefault()); // Prevent right click menu
         container.appendChild(b);
       }
     }
