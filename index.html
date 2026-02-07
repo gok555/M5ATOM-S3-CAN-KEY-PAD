@@ -1513,10 +1513,10 @@
     updateMainSoundIcon();
     async function handleStartConnect() {
       try {
-        // Init Audio Context (User Gesture)
+        // 1. Request Fullscreen (Priority: User Gesture)
+        enterFullscreen();
+        // 2. Init Audio Context (User Gesture)
         initAudio();
-        // 1. Request Fullscreen (Interaction requirement)
-        toggleFullscreen();
         // 2. Connect Bluetooth
         await connect();
         // 3. Keep Awake (WakeLock)
