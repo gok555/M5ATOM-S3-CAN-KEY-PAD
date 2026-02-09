@@ -1,4 +1,4 @@
-<!-- Version: 5.1 (Stable + K-Meter) -->
+<!-- Version: 5.2 (Debug ON Value) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -414,7 +414,7 @@
     <div id="connect-overlay">
       <!-- Changed to call handleStartConnect() for composite action -->
       <button id="start-btn" onclick="handleStartConnect()">CONNECT<br>START</button>
-      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 5.1 (Stable + K-Meter)</div>
+      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 5.2 (Debug ON Value)</div>
     </div>
     <div id="keypad"></div>
   </div>
@@ -1376,11 +1376,14 @@
       }
       // Parse: STATE=0,0,1,0...
       else if (str.startsWith("STATE=")) {
-        const parts = str.split("=")[1].split(",");
-        // Update local state and UI
-        for (let i = 0; i < 8; i++) {
-          if (i < parts.length) {
-            const val = parseInt(parts[i]);
+        log("RX: " + str); // Log the full STATE message
+        const states = str.substring(6).split(',');
+        if (states.length >= 8) {
+          // const now = Date.now(); // Not used in this context, removed
+          for (let i = 0; i < 8; i++) {
+            const s = states[i];
+            if (s === undefined) continue;
+            const val = parseInt(s); // Correctly parse 's'
             btnStates[i] = (val === 1);
             // Update UI class
             const btn = document.getElementById(`btn-${i + 1}`);
@@ -1399,6 +1402,7 @@
       const hexVal = state ? btnOnVals[idx] : btnOffVals[idx];
       // Convert to Decimal Integer
       const intVal = parseInt(hexVal, 16);
+      log(`TX [${n}]: ${state ? 'ON' : 'OFF'} (Hex:${hexVal} -> Int:${intVal})`);
       // Protocol: "ID=VAL" (1-based index)
       // main.py expects VAL as Decimal Integer (int(parts[1]))
       const cmd = `${n}=${intVal}`;
