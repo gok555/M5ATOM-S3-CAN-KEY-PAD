@@ -1,4 +1,4 @@
-<!-- Version: 5.3 (Fix Freeze) -->
+<!-- Version: 5.4 (Endian Vis) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -414,7 +414,7 @@
     <div id="connect-overlay">
       <!-- Changed to call handleStartConnect() for composite action -->
       <button id="start-btn" onclick="handleStartConnect()">CONNECT<br>START</button>
-      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 5.3 (Fix Freeze)</div>
+      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 5.4 (Endian Vis)</div>
     </div>
     <div id="keypad"></div>
   </div>
@@ -1407,10 +1407,18 @@
       // Get config value (Hex String)
       const hexVal = state ? btnOnVals[idx] : btnOffVals[idx];
       // Convert to Decimal Integer
-      const intVal = parseInt(hexVal, 16);
-      log(`TX [${n}]: ${state ? 'ON' : 'OFF'} (Hex:${hexVal} -> Int:${intVal})`);
+      let intVal = parseInt(hexVal, 16);
+      let logMsg = `TX [${n}]: ${state ? 'ON' : 'OFF'} (Hex:${hexVal}`;
+      // Ver 3.2: Endian means Bit Reversal
+      if (btnEndian && btnEndian[idx] === 'little') {
+        const origInt = intVal;
+        intVal = reverseBits(intVal);
+        logMsg += ` -> LittleEndian:0x${intVal.toString(16).toUpperCase().padStart(2, '0')} [Int:${intVal}])`;
+      } else {
+        logMsg += ` -> Int:${intVal})`;
+      }
+      log(logMsg);
       // Protocol: "ID=VAL" (1-based index)
-      // main.py expects VAL as Decimal Integer (int(parts[1]))
       const cmd = `${n}=${intVal}`;
       const enc = new TextEncoder();
       rxChar.writeValue(enc.encode(cmd)).catch(e => {
