@@ -1288,7 +1288,10 @@
       log("Requesting Device...");
       try {
         device = await navigator.bluetooth.requestDevice({
-          filters: [{ services: [SERVICE_UUID] }]
+          filters: [{
+            namePrefix: 'M5'
+          }],
+          optionalServices: [SERVICE_UUID]
         });
         device.addEventListener('gattserverdisconnected', onDisconnected);
         log("Connecting to GATT...");
