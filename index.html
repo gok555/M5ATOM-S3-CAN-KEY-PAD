@@ -1,4 +1,4 @@
-<!-- Version: 4.6 (Fix Bio Lockout) -->
+<!-- Version: 5.1 (Stable + K-Meter) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -393,7 +393,6 @@
       padding: 5px;
       border: 1px solid #444;
       box-sizing: border-box;
-    }
   </style>
 </head>
 <body>
@@ -415,7 +414,7 @@
     <div id="connect-overlay">
       <!-- Changed to call handleStartConnect() for composite action -->
       <button id="start-btn" onclick="handleStartConnect()">CONNECT<br>START</button>
-      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.6 (Fix Bio Lockout)</div>
+      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 5.1 (Stable + K-Meter)</div>
     </div>
     <div id="keypad"></div>
   </div>
@@ -437,6 +436,14 @@
           <label>ID(Hex):0x</label>
           <input type="text" id="can-id-input" value="100" maxlength="3">
           <button id="set-id-btn" class="action-btn btn-orange" onclick="setCanId()">SET</button>
+        </div>
+      </div>
+      <!-- K-Meter ID Logic (Ver 1.3) -->
+      <div class="control-row" style="margin-top: 5px;">
+        <div class="id-input-group">
+          <label>KID(Hex):0x</label>
+          <input type="text" id="k-meter-id-input" value="200" maxlength="3">
+          <button id="set-kid-btn" class="action-btn btn-orange" onclick="setKMeterId()">SET</button>
         </div>
       </div>
       <!-- Biometric Registration (Ver 4.1) -->
@@ -506,6 +513,7 @@
     </div>
     <pre id="log">Logs...</pre>
   </div>
+  <!-- Part 2 Content (Body ok) -->
   <script>
     const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
     const RX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e";
@@ -574,6 +582,7 @@
     // 表記は16進数から "0x" を除いた文字列です。
     // 例: "100" -> "200"
     let canIdVal = localStorage.getItem("canIdVal") || "100";
+    let kMeterIdVal = localStorage.getItem("kMeterIdVal") || "200";
     /* --- Config UI Generation --- */
     function renderConfigList() {
       // Update Bio Status UI
@@ -612,7 +621,7 @@
                 <input type="text" class="config-name-input" value="${label}" 
                     maxlength="8" onchange="updateBtnLabel(${i}, this.value)">
                 <div style="display:flex; flex-direction:column; gap:2px;">
-                  <div style="display:flex; gap:2px; align-items:center;">
+                   <div style="display:flex; gap:2px; align-items:center;">
                     <span style="font-size:0.7rem; color:#aaa;">ON:0x</span>
                     <input type="text" value="${btnOnVals[i]}" maxlength="2" 
                       onchange="updateBtnVal(${i}, 'on', this.value)"
@@ -870,285 +879,6 @@
         sf.className = `mini-opt ${!cfgSound ? 'selected' : ''}`;
       }
     }
-    /* --- Icon Picker Logic (Ver 3.3) --- */
-    let currentIconBtnIndex = -1;
-    function openIconPicker(index) {
-      currentIconBtnIndex = index;
-      const overlay = document.getElementById('icon-picker-overlay');
-      const grid = document.getElementById('icon-picker-grid');
-      // Generate Grid Content dynamically to render SVGs
-      let html = `<button onclick="selectIcon('none')" style="padding:10px; background:#444; border:none; color:white; border-radius:5px;">TXT</button>`;
-      // Iterate over ICONS (skip 'none')
-      for (const [key, svg] of Object.entries(ICONS)) {
-        if (key === 'none') continue;
-        html += `<button onclick="selectIcon('${key}')" style="padding:5px; background:none; border:1px solid #444; color:white; border-radius:5px; height:40px; width:40px;">${svg}</button>`;
-      }
-      grid.innerHTML = html;
-      overlay.style.display = 'flex';
-    }
-    function closeIconPicker() {
-      document.getElementById('icon-picker-overlay').style.display = 'none';
-    }
-    function selectIcon(iconKey) {
-      if (currentIconBtnIndex >= 0) {
-        btnIcons[currentIconBtnIndex] = iconKey;
-        localStorage.setItem("btnIcons", JSON.stringify(btnIcons));
-        renderConfigList();
-        renderKeypadGrid(); // Update Main View immediately
-        closeIconPicker();
-      }
-    }
-    /* --- Screen Wake Lock Logic (Ver 1.2 Fixed) --- */
-    let wakeLock = null;
-    async function requestWakeLock() {
-      try {
-        if ('wakeLock' in navigator) {
-          wakeLock = await navigator.wakeLock.request('screen');
-          console.log('Wake Lock is active!');
-          wakeLock.addEventListener('release', () => {
-            console.log('Wake Lock released');
-          });
-        }
-      } catch (err) {
-        console.error(`Wake Lock Error: ${err.name}, ${err.message}`);
-      }
-    }
-    // Re-acquire lock when visibility changes (if it was dropped)
-    document.addEventListener('visibilitychange', async () => {
-      if (wakeLock !== null && document.visibilityState === 'visible') {
-        await requestWakeLock();
-      }
-    });
-    function initAudio() {
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      } else if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
-    }
-    function triggerFeedback() {
-      // Vibe
-      if (cfgVibe && navigator.vibrate) {
-        navigator.vibrate(15);
-      }
-      // Sound
-      if (cfgSound && audioCtx) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.type = 'square';
-        osc.frequency.value = 2000;
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.05);
-      }
-    }
-    /* --- Fullscreen Logic --- */
-    function toggleFullscreen() {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(e => {
-          // log("FS Err: " + e); // Common if not user gesture
-        });
-      } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
-        }
-      }
-    }
-    function enterFullscreen() {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(e => {
-          // log("FS IGNORED");
-        });
-      }
-    }
-    /* --- Navigation --- */
-    function showSettings() {
-      renderConfigList();
-      updateFeedbackUI();
-      document.getElementById("view-main").classList.remove("active");
-      document.getElementById("view-settings").classList.add("active");
-    }
-    function showMain() {
-      document.getElementById("view-settings").classList.remove("active");
-      document.getElementById("view-main").classList.add("active");
-    }
-    function log(t) {
-      const el = document.getElementById("log");
-      const time = new Date().toLocaleTimeString().split(' ')[0];
-      el.textContent = `[${time}] ${t}\n` + el.textContent.substring(0, 1000);
-    }
-    function updateStatus(connected) {
-      isConnected = connected;
-      const ind = document.getElementById("status-display");
-      const overlay = document.getElementById("connect-overlay");
-      const keypad = document.getElementById("keypad");
-      const discRow = document.getElementById("disconnect-row");
-      if (connected) {
-        ind.textContent = "🟢 Connected";
-        ind.classList.add("connected");
-        // Show Keypad, Hide Overlay
-        overlay.style.display = "none";
-        keypad.classList.add("visible");
-        // Show Disconnect option in settings
-        discRow.style.display = "flex";
-        // Start waiting for heartbeat
-        resetWatchdog();
-        document.getElementById("can-status-display").style.display = "block";
-        updateMainSoundIcon();
-      } else {
-        ind.textContent = "🔴 Disconnected";
-        ind.classList.remove("connected");
-        ind.classList.remove("stalled");
-        // Hide Keypad, Show Overlay
-        overlay.style.display = "flex";
-        keypad.classList.remove("visible");
-        // Hide Disconnect option
-        discRow.style.display = "none";
-        document.getElementById("can-status-display").style.display = "none";
-        clearTimeout(watchdogTimer);
-      }
-    }
-    function resetWatchdog() {
-      if (!isConnected) return;
-      const ind = document.getElementById("status-display");
-      // Restore "Connected" visual if it was stalled
-      if (ind.textContent.includes("No Response")) {
-        ind.textContent = "🟢 Connected";
-        ind.classList.remove("stalled");
-        ind.classList.add("connected");
-      }
-      clearTimeout(watchdogTimer);
-      watchdogTimer = setTimeout(() => {
-        // Heartbeat lost
-        ind.textContent = "⚠️ No Response";
-        ind.classList.remove("connected");
-        ind.classList.add("stalled");
-        // Optional: Auto disconnect logic? For now just visual warning.
-      }, WATCHDOG_TIMEOUT);
-    }
-    function updateCanStatus(status) {
-      const el = document.getElementById("can-status-display");
-      if (status === "CAN_OK") {
-        el.textContent = "CAN: OK";
-        el.className = "status-indicator can-ok";
-        el.style.display = "block";
-      } else {
-        el.textContent = "CAN: ERR";
-        el.className = "status-indicator can-err";
-        el.style.display = "block";
-      }
-    }
-    // --- CONNECT FLOW (Composite Action) ---
-    async function handleStartConnect() {
-      initAudio();
-      // 1. Enter Fullscreen (User Gesture)
-      enterFullscreen();
-      // 2. Request Wake Lock (User Gesture)
-      // Note: We do NOT await this. We let it fire in the background.
-      // Awaiting it might delay the 'connect()' call enough to lose the "User Gesture" token required for popups.
-      requestWakeLock();
-      // 3. Start BLE Connect (User Gesture - Must happen immediately)
-      await connect();
-    }
-    async function connect() {
-      try {
-        device = await navigator.bluetooth.requestDevice({
-          filters: [{
-            namePrefix: 'M5'
-          }],
-          optionalServices: [SERVICE_UUID]
-        });
-        gattServer = await device.gatt.connect();
-        device.addEventListener('gattserverdisconnected', () => {
-          log("Disconnected Event");
-          updateStatus(false);
-        });
-        const svc = await gattServer.getPrimaryService(SERVICE_UUID);
-        rxChar = await svc.getCharacteristic(RX_UUID);
-        txChar = await svc.getCharacteristic(TX_UUID);
-        await txChar.startNotifications();
-        txChar.addEventListener('characteristicvaluechanged', handleNotifications);
-        updateStatus(true);
-        log("BLE Ready");
-      } catch (e) {
-        log("Err: " + e);
-        updateStatus(false);
-      }
-    }
-    function disconnect() {
-      if (device && device.gatt.connected) {
-        device.gatt.disconnect();
-        updateStatus(false);
-      }
-    }
-    function handleNotifications(event) {
-      const value = event.target.value;
-      const decoder = new TextDecoder('utf-8');
-      const msg = decoder.decode(value);
-      // Reset watchdog on ANY message from device
-      resetWatchdog();
-      if (msg.startsWith("STATE=")) {
-        const states = msg.substring(6).split(',');
-        if (states.length >= 8) {
-          const now = Date.now();
-          // Ver 3.2: Iterate Buttons (Fixed Index, Bit Reverse Logic)
-          for (let i = 0; i < 8; i++) {
-            const s = states[i];
-            if (s === undefined) continue;
-            if (btnModes[i] === 'momentary') {
-              if (now - lastPulseTimes[i] < 500) {
-                continue; // Ignore sync
-              }
-            }
-            // Version 2.7 Logic preserved
-            let receivedVal = parseInt(s, 10);
-            // Ver 3.2: Reverse Bits if Little Endian
-            if (btnEndian[i] === 'little') {
-              receivedVal = reverseBits(receivedVal);
-            }
-            const onVal = parseInt(btnOnVals[i], 16);
-            btnStates[i] = (receivedVal === onVal);
-            updateBtnVisual(i + 1, btnStates[i]);
-          }
-        }
-      } else if (msg.startsWith("STATUS=")) {
-        const st = msg.substring(7);
-        updateCanStatus(st);
-      }
-    }
-    function updateBtnVisual(n, isActive) {
-      const btn = document.getElementById('btn-' + n);
-      if (!btn) return;
-      if (isActive) {
-        btn.classList.add('active');
-      } else {
-        btn.classList.remove('active');
-      }
-    }
-    // Core function to send Specific State
-    function sendState(n, state) {
-      const btnIndex = n - 1;
-      btnStates[btnIndex] = state;
-      updateBtnVisual(n, state);
-      if (rxChar) {
-        // Version 2.7: Send Configured Hex Value
-        const valStr = state ? btnOnVals[btnIndex] : btnOffVals[btnIndex];
-        let valInt = parseInt(valStr, 16);
-        // Ver 3.2: Endian means Bit Reversal, NOT Byte Swap
-        if (btnEndian[btnIndex] === 'little') {
-          valInt = reverseBits(valInt);
-        }
-        // Target is always the button index + 1
-        const targetN = btnIndex + 1;
-        const cmd = `${targetN}=${valInt}`;
-        rxChar.writeValue(new TextEncoder().encode(cmd))
-          .catch(e => {
-            // log("TX ERR");
-          });
-      }
-    }
     function reverseBits(b) {
       b = b & 0xFF;
       let r = 0;
@@ -1247,6 +977,23 @@
         alert("Invalid Hex ID");
       }
     }
+    function setKMeterId() {
+      const el = document.getElementById("k-meter-id-input");
+      const val = el.value;
+      if (val.match(/^[0-9A-Fa-f]+$/)) {
+        log(`Set K-Meter ID: 0x${val}`);
+        localStorage.setItem("kMeterIdVal", val);
+        kMeterIdVal = val;
+        // Send command to device
+        if (rxChar) {
+          const cmd = `KID=${val}`;
+          rxChar.writeValue(new TextEncoder().encode(cmd))
+            .catch(e => log("TX ERR KID"));
+        }
+      } else {
+        alert("Invalid Hex KID");
+      }
+    }
     /* --- Import / Export Logic --- */
     function exportConfig() {
       const config = {
@@ -1266,7 +1013,8 @@
         btnOffDelays: btnOffDelays, // Ver 4.4
         cfgVibe: cfgVibe,
         cfgSound: cfgSound,
-        canId: canIdVal
+        canId: canIdVal,
+        kMeterId: kMeterIdVal // Added kMeterId
       };
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
       const downloadAnchor = document.createElement('a');
@@ -1336,6 +1084,11 @@
             // User must click SET if they want to push valid ID to device immediately, 
             // or it will be used next time/manually.
           }
+          if (config.kMeterId) {
+            document.getElementById("k-meter-id-input").value = config.kMeterId;
+            kMeterIdVal = config.kMeterId;
+            localStorage.setItem("kMeterIdVal", kMeterIdVal);
+          }
           // Ver 4.0 Handle missing auth array in old configs
           if (!btnAuth || !Array.isArray(btnAuth)) {
             btnAuth = Array(8).fill(false);
@@ -1352,7 +1105,7 @@
               alert("⚠️ Configuration Loaded, but Button Locks were disabled because no Biometric Registration was found on this device.");
             }
           }
-          // Ver 4.4: Import Delay Arrays
+          // Ver 4.0: Import Delay Arrays
           if (config.btnOnDelays && Array.isArray(config.btnOnDelays)) {
             btnOnDelays = config.btnOnDelays;
             localStorage.setItem("btnOnDelays", JSON.stringify(btnOnDelays));
@@ -1374,6 +1127,9 @@
           alert("Configuration Loaded Successfully");
           // Refresh UI
           renderConfigList();
+          // Initialize Inputs
+          document.getElementById("can-id-input").value = canIdVal;
+          document.getElementById("k-meter-id-input").value = kMeterIdVal;
           // Refresh Keypad Visuals (Colors/Labels/Icons)
           renderKeypadGrid();
         } catch (err) {
@@ -1512,19 +1268,229 @@
     // Update icon on load
     updateMainSoundIcon();
     async function handleStartConnect() {
+      log("Button Clicked: handleStartConnect");
       try {
-        // 1. Request Fullscreen (Priority: User Gesture)
-        enterFullscreen();
-        // 2. Init Audio Context (User Gesture)
-        initAudio();
-        // 2. Connect Bluetooth
+        // 1. Connect Bluetooth (Must be First - User Gesture)
         await connect();
-        // 3. Keep Awake (WakeLock)
+        // 2. Request Fullscreen (Best Effort)
+        enterFullscreen();
+        // 3. Init Audio Context (Best Effort)
+        initAudio();
+        // 4. Keep Awake (WakeLock)
         requestWakeLock();
       } catch (e) {
         console.error("Start Connect Error:", e);
         log("Err: " + e);
       }
+    }
+    /* --- Missing Logic Injection --- */
+    async function connect() {
+      log("Requesting Device (Filter: M5)...");
+      try {
+        device = await navigator.bluetooth.requestDevice({
+          filters: [{
+            namePrefix: 'M5'
+          }],
+          optionalServices: [SERVICE_UUID]
+        });
+        device.addEventListener('gattserverdisconnected', onDisconnected);
+        log("Connecting to GATT...");
+        gattServer = await device.gatt.connect();
+        log("Getting Service...");
+        const service = await gattServer.getPrimaryService(SERVICE_UUID);
+        log("Getting Characteristics...");
+        rxChar = await service.getCharacteristic(RX_UUID);
+        txChar = await service.getCharacteristic(TX_UUID);
+        log("Starting Notifications...");
+        await txChar.startNotifications();
+        txChar.addEventListener('characteristicvaluechanged', handleNotifications);
+        isConnected = true;
+        updateStatus(true);
+        log("Connected!");
+        // Show Keypad
+        const keypad = document.getElementById("keypad");
+        keypad.classList.add("visible");
+        // Send Sync request
+        // sendState(0, 0); // Dummy write? Or wait for device to send sync?
+      } catch (error) {
+        log("Connect Error: " + error);
+        isConnected = false;
+        updateStatus(false);
+      }
+    }
+    function disconnect() {
+      if (device && device.gatt.connected) {
+        device.gatt.disconnect();
+      } else {
+        // Force cleanup if already disconnected logic didn't trigger
+        onDisconnected();
+      }
+    }
+    function onDisconnected() {
+      log("Disconnected.");
+      isConnected = false;
+      updateStatus(false);
+      const keypad = document.getElementById("keypad");
+      keypad.classList.remove("visible");
+      // Hide CAN status
+      const canSt = document.getElementById("can-status-display");
+      if (canSt) canSt.style.display = "none";
+    }
+    function updateStatus(connected) {
+      const el = document.getElementById("status-display");
+      const overlay = document.getElementById("connect-overlay");
+      if (connected) {
+        el.textContent = "🟢 Connected";
+        el.className = "status-indicator connected";
+        if (overlay) overlay.style.display = "none";
+        // Enable disconnect button in settings if wanted
+        const discRow = document.getElementById("disconnect-row");
+        if (discRow) discRow.style.display = "block";
+      } else {
+        el.textContent = "🔴 Disconnected";
+        el.className = "status-indicator";
+        if (overlay) overlay.style.display = "flex";
+        const discRow = document.getElementById("disconnect-row");
+        if (discRow) discRow.style.display = "none";
+      }
+    }
+    function handleNotifications(event) {
+      const value = event.target.value;
+      const dec = new TextDecoder();
+      const str = dec.decode(value).trim();
+      // log("RX: " + str); // Debug verbose?
+      // Parse: STATUS=CAN_OK / STATUS=CAN_ERR
+      if (str.startsWith("STATUS=")) {
+        const st = str.split("=")[1];
+        const disp = document.getElementById("can-status-display");
+        if (disp) {
+          disp.style.display = "block";
+          if (st === "CAN_OK") {
+            disp.textContent = "CAN: OK";
+            disp.className = "status-indicator can-ok";
+          } else {
+            disp.textContent = "CAN: ERR";
+            disp.className = "status-indicator can-err";
+          }
+        }
+      }
+      // Parse: STATE=0,0,1,0...
+      else if (str.startsWith("STATE=")) {
+        const parts = str.split("=")[1].split(",");
+        // Update local state and UI
+        for (let i = 0; i < 8; i++) {
+          if (i < parts.length) {
+            const val = parseInt(parts[i]);
+            btnStates[i] = (val === 1);
+            // Update UI class
+            const btn = document.getElementById(`btn-${i + 1}`);
+            if (btn) {
+              if (btnStates[i]) btn.classList.add("active");
+              else btn.classList.remove("active");
+            }
+          }
+        }
+      }
+    }
+    function sendState(n, state) {
+      if (!rxChar) return; // Not connected
+      const idx = n - 1;
+      // Get config value (Hex String)
+      const hexVal = state ? btnOnVals[idx] : btnOffVals[idx];
+      // Convert to Decimal Integer
+      const intVal = parseInt(hexVal, 16);
+      // Protocol: "ID=VAL" (1-based index)
+      // main.py expects VAL as Decimal Integer (int(parts[1]))
+      const cmd = `${n}=${intVal}`;
+      const enc = new TextEncoder();
+      rxChar.writeValue(enc.encode(cmd)).catch(e => {
+        log("TX Error: " + e);
+      });
+    }
+    /* --- UI Helpers --- */
+    function showSettings() {
+      document.getElementById("view-main").classList.remove("active");
+      document.getElementById("view-settings").classList.add("active");
+    }
+    function showMain() {
+      document.getElementById("view-settings").classList.remove("active");
+      document.getElementById("view-main").classList.add("active");
+    }
+    function log(msg) {
+      const el = document.getElementById("log");
+      if (el) {
+        el.textContent = msg + "\n" + el.textContent;
+        // Trim log?
+        if (el.textContent.length > 2000) el.textContent = el.textContent.substring(0, 2000);
+      }
+      console.log(msg);
+    }
+    function enterFullscreen() {
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) {
+        elem.requestFullscreen().catch(err => {
+          log("Fullscreen Err: " + err.message);
+        });
+      }
+    }
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        enterFullscreen();
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+    /* --- Wake Lock --- */
+    let wakeLock = null;
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+          log("Wake Lock active");
+          wakeLock.addEventListener('release', () => {
+            log("Wake Lock released");
+          });
+        }
+      } catch (err) {
+        log("Wake Lock Err: " + err.name);
+      }
+    }
+    /* --- Icon Picker UI --- */
+    function openIconPicker(idx) {
+      const overlay = document.getElementById("icon-picker-overlay");
+      overlay.style.display = "flex";
+      // Populate Grid
+      const grid = document.getElementById("icon-picker-grid");
+      grid.innerHTML = "";
+      // "None" option
+      const btnNone = document.createElement("button");
+      btnNone.className = "action-btn btn-gray";
+      btnNone.style.padding = "5px";
+      btnNone.textContent = "None";
+      btnNone.onclick = () => selectIcon(idx, 'none');
+      grid.appendChild(btnNone);
+      // Icons
+      for (const [key, svg] of Object.entries(ICONS)) {
+        if (key === 'none') continue;
+        const btn = document.createElement("button");
+        btn.className = "action-btn btn-gray";
+        btn.style.padding = "5px";
+        btn.innerHTML = svg;
+        btn.onclick = () => selectIcon(idx, key);
+        grid.appendChild(btn);
+      }
+    }
+    function closeIconPicker() {
+      document.getElementById("icon-picker-overlay").style.display = "none";
+    }
+    function selectIcon(btnIdx, iconKey) {
+      btnIcons[btnIdx] = iconKey;
+      localStorage.setItem("btnIcons", JSON.stringify(btnIcons));
+      closeIconPicker();
+      renderConfigList(); // update preview in config
+      renderKeypadGrid(); // update main keypad
     }
   </script>
   <!-- Icon Picker Overlay -->
@@ -1541,6 +1507,6 @@
         </div>
       </div>
     </div>
+  </div>
 </body>
 </html>
-
