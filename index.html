@@ -1,4 +1,4 @@
-<!-- Version: 5.2 (Debug ON Value) -->
+<!-- Version: 5.3 (Fix Freeze) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -414,7 +414,7 @@
     <div id="connect-overlay">
       <!-- Changed to call handleStartConnect() for composite action -->
       <button id="start-btn" onclick="handleStartConnect()">CONNECT<br>START</button>
-      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 5.2 (Debug ON Value)</div>
+      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 5.3 (Fix Freeze)</div>
     </div>
     <div id="keypad"></div>
   </div>
@@ -1384,7 +1384,13 @@
             const s = states[i];
             if (s === undefined) continue;
             const val = parseInt(s); // Correctly parse 's'
-            btnStates[i] = (val === 1);
+            // Check ON Value (Hex -> Int)
+            const onVal = parseInt(btnOnVals[i], 16);
+            // If received value matches configured ON value, set state to true (ON)
+            // Otherwise set to false (OFF)
+            btnStates[i] = (val === onVal);
+            // Log for debug (Temporarily keep logging)
+            // log(`RX [${i+1}]: ${val} (Expected ON:${onVal}) -> State:${btnStates[i]}`);
             // Update UI class
             const btn = document.getElementById(`btn-${i + 1}`);
             if (btn) {
