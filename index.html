@@ -1,4 +1,4 @@
-<!-- Version: 4.6 (Fix Bio Lockout) -->
+<!-- Version: 4.7 (Debug Connect) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -414,7 +414,7 @@
     <div id="connect-overlay">
       <!-- Changed to call handleStartConnect() for composite action -->
       <button id="start-btn" onclick="handleStartConnect()">CONNECT<br>START</button>
-      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.6 (Fix Bio Lockout)</div>
+      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.7 (Debug Connect)</div>
     </div>
     <div id="keypad"></div>
   </div>
@@ -1269,6 +1269,7 @@
     // Update icon on load
     updateMainSoundIcon();
     async function handleStartConnect() {
+      log("Button Clicked: handleStartConnect");
       try {
         // 1. Request Fullscreen (Priority: User Gesture)
         enterFullscreen();
@@ -1285,12 +1286,10 @@
     }
     /* --- Missing Logic Injection --- */
     async function connect() {
-      log("Requesting Device...");
+      log("Requesting Device (acceptAll)...");
       try {
         device = await navigator.bluetooth.requestDevice({
-          filters: [{
-            namePrefix: 'M5'
-          }],
+          acceptAllDevices: true,
           optionalServices: [SERVICE_UUID]
         });
         device.addEventListener('gattserverdisconnected', onDisconnected);
