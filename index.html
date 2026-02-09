@@ -1,4 +1,4 @@
-<!-- Version: 4.8 (Fix Connect Order) -->
+<!-- Version: 4.9 (Fix Input Logic) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -414,7 +414,7 @@
     <div id="connect-overlay">
       <!-- Changed to call handleStartConnect() for composite action -->
       <button id="start-btn" onclick="handleStartConnect()">CONNECT<br>START</button>
-      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.8 (Fix Connect Order)</div>
+      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.9 (Fix Input Logic)</div>
     </div>
     <div id="keypad"></div>
   </div>
@@ -622,16 +622,18 @@
                 <input type="text" class="config-name-input" value="${label}" 
                     maxlength="8" onchange="updateBtnLabel(${i}, this.value)">
                 <div style="display:flex; flex-direction:column; gap:2px;">
-                  <div style="display:flex; gap:2px; align-items:center;">
+                   <div style="display:flex; gap:2px; align-items:center;">
                     <span style="font-size:0.7rem; color:#aaa;">ON:0x</span>
                     <input type="text" value="${btnOnVals[i]}" maxlength="2" 
                       onchange="updateBtnVal(${i}, 'on', this.value)"
+                      onblur="updateBtnVal(${i}, 'on', this.value)"
                       style="width:40px; background:#222; border:1px solid #555; color:white; font-family:monospace; text-align:center; padding:4px; font-size:16px;">
                   </div>
                    <div style="display:flex; gap:2px; align-items:center;">
                     <span style="font-size:0.7rem; color:#aaa;">OFF:0x</span>
                     <input type="text" value="${btnOffVals[i]}" maxlength="2" 
                       onchange="updateBtnVal(${i}, 'off', this.value)"
+                      onblur="updateBtnVal(${i}, 'off', this.value)"
                       style="width:40px; background:#222; border:1px solid #555; color:white; font-family:monospace; text-align:center; padding:4px; font-size:16px;">
                    </div>
                  </div>
@@ -687,6 +689,7 @@
       if (labelSpan) labelSpan.textContent = newName;
     }
     function updateBtnVal(index, type, val) {
+      log(`Update Val[${index}] ${type}: ${val}`);
       // Validate Hex
       if (!/^[0-9A-Fa-f]{1,2}$/.test(val)) {
         alert("Invalid Hex");
@@ -701,6 +704,8 @@
         btnOffVals[index] = val;
         localStorage.setItem("btnOffVals", JSON.stringify(btnOffVals));
       }
+      // Force UI update for this element to show formatted value
+      // Note: We avoid renderConfigList() here to keep focus
     }
     function updateBtnDelay(index, type, val) {
       let v = parseFloat(val);
