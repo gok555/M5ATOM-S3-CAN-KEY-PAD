@@ -410,6 +410,9 @@
           style="display:none; font-size:0.8rem; border-left:1px solid #444; padding-left:10px;">CAN: --</div>
       </div>
       <div style="display:flex; gap:15px; align-items:center;">
+        <div id="temp-display"
+          style="font-size:0.9rem; color:#00FFFF; border:1px solid #00FFFF; padding:2px 5px; border-radius:4px; display:none;">
+          --°C</div>
         <button id="main-sound-btn" class="header-btn" onclick="toggleSoundMain()" style="font-size:1.2rem;">🔊</button>
         <button class="header-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
         <button id="settings-btn" class="header-btn" onclick="showSettings()">⚙️</button>
@@ -1131,6 +1134,16 @@
         // Update Input if exists
         const el = document.getElementById("k-meter-id-input");
         if (el) el.value = kMeterIdVal;
+      }
+      else if (cleanedCmd.startsWith("TEMP=")) {
+        const val = cleanedCmd.split("=")[1];
+        const tempEl = document.getElementById("temp-display");
+        if (tempEl) {
+          // Ensure it is visible
+          if (tempEl.style.display === "none") tempEl.style.display = "block";
+          // Display as-is (integer)
+          tempEl.textContent = val + "°C";
+        }
       }
       else if (cleanedCmd.startsWith("STATE=")) {
         const states = cleanedCmd.substring(6).split(',');
