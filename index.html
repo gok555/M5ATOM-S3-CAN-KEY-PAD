@@ -280,8 +280,11 @@
       color: #ddd;
       font-size: 1rem;
       white-space: nowrap;
+      min-width: 80px;
+      /* Reduced from default padding logic if needed */
     }
-    #can-id-input {
+    #can-id-input,
+    #k-meter-id-input {
       flex: 1;
       /* Allow growing */
       background: #222;
@@ -435,7 +438,7 @@
       <!-- ID Logic -->
       <div class="control-row">
         <div class="id-input-group">
-          <label>ID(Hex):0x</label>
+          <label style="min-width: 60px;">TX ID:0x</label>
           <input type="text" id="can-id-input" value="100" maxlength="3">
           <button id="set-id-btn" class="action-btn btn-orange" onclick="setCanId()">SET</button>
         </div>
@@ -443,7 +446,7 @@
       <!-- K-Meter ID Logic -->
       <div class="control-row" style="margin-top:5px;">
         <div class="id-input-group">
-          <label>KID(Hex):0x</label>
+          <label style="min-width: 60px;">RX ID:0x</label>
           <input type="text" id="k-meter-id-input" value="200" maxlength="3">
           <button id="set-k-id-btn" class="action-btn btn-orange" onclick="setKMeterId()">SET</button>
         </div>
