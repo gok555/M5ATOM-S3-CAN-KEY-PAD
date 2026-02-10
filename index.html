@@ -1,4 +1,4 @@
-<!-- Version: 4.6 (Fix Bio Lockout) -->
+<!-- Version: 4.7 (Temp Display) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -409,10 +409,10 @@
         <div id="can-status-display" class="status-indicator"
           style="display:none; font-size:0.8rem; border-left:1px solid #444; padding-left:10px;">CAN: --</div>
       </div>
+      <div style="flex:1; display:flex; justify-content:center; align-items:center;">
+        <div id="temp-display" style="font-size:1.2rem; color:#00FFFF; font-weight:bold; display:none;">--°C</div>
+      </div>
       <div style="display:flex; gap:15px; align-items:center;">
-        <div id="temp-display"
-          style="font-size:0.9rem; color:#00FFFF; border:1px solid #00FFFF; padding:2px 5px; border-radius:4px; display:none;">
-          --°C</div>
         <button id="main-sound-btn" class="header-btn" onclick="toggleSoundMain()" style="font-size:1.2rem;">🔊</button>
         <button class="header-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
         <button id="settings-btn" class="header-btn" onclick="showSettings()">⚙️</button>
@@ -422,7 +422,7 @@
     <div id="connect-overlay">
       <!-- Changed to call handleStartConnect() for composite action -->
       <button id="start-btn" onclick="handleStartConnect()">CONNECT<br>START</button>
-      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.6 (Fix Bio Lockout)</div>
+      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.7 (Temp Display)</div>
     </div>
     <div id="keypad"></div>
   </div>
@@ -515,7 +515,7 @@
         <input type="file" id="import-file" style="display:none" accept=".json" onchange="handleFileSelect(this)">
       </div>
       <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
-        Ver 4.6 (Fix Bio Lockout)<br>
+        Ver 4.7 (Temp Display)<br>
         M5Atom S3 CAN
       </div>
     </div>
