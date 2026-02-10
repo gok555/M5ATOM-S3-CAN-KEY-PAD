@@ -1038,30 +1038,32 @@
       const ind = document.getElementById("status-display");
       // Restore "Connected" visual if it was stalled
       if (ind.textContent.includes("No Response")) {
-        ind.textContent = "泙 Connected";
+        ind.textContent = "🟢 Connected";
+        ind.style.color = "#00ff00";
         ind.classList.remove("stalled");
-        ind.classList.add("connected");
       }
       clearTimeout(watchdogTimer);
       watchdogTimer = setTimeout(() => {
         // Heartbeat lost
-        ind.textContent = "笞・・No Response";
-        ind.classList.remove("connected");
+        ind.textContent = "⚠️ No Response";
+        ind.style.color = "orange";
         ind.classList.add("stalled");
         // Optional: Auto disconnect logic? For now just visual warning.
       }, WATCHDOG_TIMEOUT);
     }
-    function updateCanStatus(status) {
-      const el = document.getElementById("can-status-display");
-      if (status === "CAN_OK") {
-        el.textContent = "CAN: OK";
-        el.className = "status-indicator can-ok";
-        el.style.display = "block";
-      } else {
-        el.textContent = "CAN: ERR";
-        el.className = "status-indicator can-err";
-        el.style.display = "block";
-      }
+    function updateCanStatus(st) {
+       const el = document.getElementById("can-status-display");
+       if(!el) return;
+       // Ensure visible
+       if(el.style.display === "none") el.style.display = "block";
+       
+       if (st === "CAN_OK") {
+         el.textContent = "CAN:OK";
+         el.style.color = "#00ff00"; // Green
+       } else {
+         el.textContent = "CAN:ERR";
+         el.style.color = "#ff0000"; // Red
+       }
     }
     // --- CONNECT FLOW (Composite Action) ---
     async function handleStartConnect() {
