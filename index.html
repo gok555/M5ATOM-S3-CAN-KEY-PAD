@@ -1,4 +1,4 @@
-<!-- Version: 4.8.0 (Momentary Mode) -->
+<!-- Version: 4.7.2 (Fix CAN Status Bug) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -422,7 +422,7 @@
     <div id="connect-overlay">
       <!-- Changed to call handleStartConnect() for composite action -->
       <button id="start-btn" onclick="handleStartConnect()">CONNECT<br>START</button>
-      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.8.0 (Momentary Mode)</div>
+      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.7.2 (Fix CAN Status Bug)</div>
     </div>
     <div id="keypad"></div>
   </div>
@@ -515,7 +515,7 @@
         <input type="file" id="import-file" style="display:none" accept=".json" onchange="handleFileSelect(this)">
       </div>
       <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
-        Ver 4.8.0 (Momentary Mode)<br>
+        Ver 4.7.2 (Fix CAN Status Bug)<br>
         M5Atom S3 CAN
       </div>
     </div>
@@ -666,7 +666,7 @@
                 
                 <div class="mini-switch">
                     <button class="mini-opt ${!isMom ? 'selected' : ''}" onclick="changeBtnMode(${i}, 'toggle')">Tog</button>
-                    <button class="mini-opt ${isMom ? 'selected' : ''}" onclick="changeBtnMode(${i}, 'momentary')">Mom</button>
+                    <button class="mini-opt ${isMom ? 'selected' : ''}" onclick="changeBtnMode(${i}, 'momentary')">Pul</button>
                 </div>
                  <!-- Endian Switch -->
                  <div style="display:flex; flex-direction:column; align-items:center; margin-left:5px;">
@@ -1268,24 +1268,19 @@
     function handlePointerUp(n, e) {
       if (e) e.preventDefault();
       const idx = n - 1;
-      const btnEl = document.getElementById(`btn-${n}`);
-      // Cancel Long Press Timer if it exists
+      // Cancel Timer if it exists
       if (holdTimers[idx]) {
         clearTimeout(holdTimers[idx]);
         holdTimers[idx] = null;
       }
-      // Check for Momentary Mode - Release = OFF
-      if (btnModes[idx] === 'momentary') {
-        sendState(n, false); // OFF on Release
-      }
+      const btnEl = document.getElementById(`btn-${n}`);
       if (btnEl) btnEl.classList.remove('pressing');
     }
     function executeAction(n) {
       const idx = n - 1;
       const isMomentary = (btnModes[idx] === 'momentary');
       if (isMomentary) {
-        // True Momentary: This is called on Pointer DOWN
-        sendState(n, true); // ON
+        triggerPulse(n);
       } else {
         // Toggle Mode
         const newState = !btnStates[idx];
