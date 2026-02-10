@@ -1,4 +1,4 @@
-<!-- Version: 4.7.1 (Fix Status Display) -->
+<!-- Version: 4.7.2 (Fix CAN Status Bug) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -422,7 +422,7 @@
     <div id="connect-overlay">
       <!-- Changed to call handleStartConnect() for composite action -->
       <button id="start-btn" onclick="handleStartConnect()">CONNECT<br>START</button>
-      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.7.1 (Fix Status Display)</div>
+      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.7.2 (Fix CAN Status Bug)</div>
     </div>
     <div id="keypad"></div>
   </div>
@@ -515,7 +515,7 @@
         <input type="file" id="import-file" style="display:none" accept=".json" onchange="handleFileSelect(this)">
       </div>
       <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
-        Ver 4.7.1 (Fix Status Display)<br>
+        Ver 4.7.2 (Fix CAN Status Bug)<br>
         M5Atom S3 CAN
       </div>
     </div>
@@ -1009,7 +1009,7 @@
       const keypad = document.getElementById("keypad");
       const discRow = document.getElementById("disconnect-row");
       if (connected) {
-        ind.textContent = "泙 Connected";
+        ind.textContent = "🟢 Connected";
         ind.classList.add("connected");
         // Show Keypad, Hide Overlay
         overlay.style.display = "none";
@@ -1021,7 +1021,7 @@
         document.getElementById("can-status-display").style.display = "block";
         updateMainSoundIcon();
       } else {
-        ind.textContent = "閥 Disconnected";
+        ind.textContent = "🔴 Disconnected";
         ind.classList.remove("connected");
         ind.classList.remove("stalled");
         // Hide Keypad, Show Overlay
@@ -1178,8 +1178,8 @@
             updateBtnVisual(i + 1, btnStates[i]);
           }
         }
-      } else if (msg.startsWith("STATUS=")) {
-        const st = msg.substring(7);
+      } else if (cleanedCmd.startsWith("STATUS=")) {
+        const st = cleanedCmd.substring(7);
         updateCanStatus(st);
       }
     }
