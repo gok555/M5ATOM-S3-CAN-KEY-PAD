@@ -338,6 +338,7 @@
     /* Color Picker Input */
     input[type="color"] {
       -webkit-appearance: none;
+      appearance: none;
       border: none;
       width: 36px;
       /* Larger */
@@ -1100,13 +1101,36 @@
       }
     }
     function handleNotifications(event) {
-      const value = event.target.value;
       const decoder = new TextDecoder('utf-8');
-      const msg = decoder.decode(value);
+      const cmd = decoder.decode(event.target.value);
+      // Clean up string
+      const cleanedCmd = cmd.replace(/(\r\n|\n|\r)/gm, "").trim();
+      log("RX: " + cleanedCmd);
       // Reset watchdog on ANY message from device
       resetWatchdog();
-      if (msg.startsWith("STATE=")) {
-        const states = msg.substring(6).split(',');
+      if (cleanedCmd.startsWith("ID=")) {
+        const val = cleanedCmd.split("=")[1];
+        // Remove 0x if present for cleaner UI
+        const cleanVal = val.replace("0x", "").replace("0X", "").toUpperCase();
+        log("Sync ID: " + cleanVal);
+        canIdVal = cleanVal;
+        localStorage.setItem("canIdVal", canIdVal);
+        // Update Input if exists
+        const el = document.getElementById("can-id-input");
+        if (el) el.value = canIdVal;
+      }
+      else if (cleanedCmd.startsWith("KID=")) {
+        const val = cleanedCmd.split("=")[1];
+        const cleanVal = val.replace("0x", "").replace("0X", "").toUpperCase();
+        log("Sync KID: " + cleanVal);
+        kMeterIdVal = cleanVal;
+        localStorage.setItem("kMeterIdVal", kMeterIdVal);
+        // Update Input if exists
+        const el = document.getElementById("k-meter-id-input");
+        if (el) el.value = kMeterIdVal;
+      }
+      else if (cleanedCmd.startsWith("STATE=")) {
+        const states = cleanedCmd.substring(6).split(',');
         if (states.length >= 8) {
           const now = Date.now();
           // Ver 3.2: Iterate Buttons (Fixed Index, Bit Reverse Logic)
