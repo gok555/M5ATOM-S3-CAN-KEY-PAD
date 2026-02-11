@@ -716,6 +716,20 @@
         btnOffVals[index] = val;
         localStorage.setItem("btnOffVals", JSON.stringify(btnOffVals));
       }
+      sendBtnConfig(index);
+    }
+    function sendBtnConfig(inIdx) {
+      if (!rxChar) return;
+      // Get values
+      const onValRaw = btnOnVals[inIdx];
+      const offValRaw = btnOffVals[inIdx];
+      // Convert Hex to Decimal for transmission
+      const onVal = parseInt(onValRaw, 16);
+      const offVal = parseInt(offValRaw, 16);
+      if (isNaN(onVal) || isNaN(offVal)) return;
+      const cmd = `CFGBTN=${inIdx},${onVal},${offVal}`;
+      rxChar.writeValue(new TextEncoder().encode(cmd))
+        .catch(e => console.log("TX Config Err"));
     }
     function updateBtnDelay(index, type, val) {
       let v = parseFloat(val);
