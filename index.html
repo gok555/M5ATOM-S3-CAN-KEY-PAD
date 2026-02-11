@@ -1,4 +1,4 @@
-<!-- Version: 4.8.0 (NVS Sync Fix) -->
+<!-- Version: 4.8.1 (Manual Save) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -422,7 +422,7 @@
     <div id="connect-overlay">
       <!-- Changed to call handleStartConnect() for composite action -->
       <button id="start-btn" onclick="handleStartConnect()">CONNECT<br>START</button>
-      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.8.0 (NVS Sync Fix)</div>
+      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.8.1 (Manual Save)</div>
     </div>
     <div id="keypad"></div>
   </div>
@@ -517,7 +517,7 @@
         <input type="file" id="import-file" style="display:none" accept=".json" onchange="handleFileSelect(this)">
       </div>
       <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
-        Ver 4.8.0 (NVS Sync Fix)<br>
+        Ver 4.8.1 (Manual Save)<br>
         M5Atom S3 CAN
       </div>
     </div>
@@ -648,8 +648,9 @@
                     <input type="text" value="${btnOffVals[i]}" maxlength="2" 
                       onchange="updateBtnVal(${i}, 'off', this.value)"
                       style="width:40px; background:#222; border:1px solid #555; color:white; font-family:monospace; text-align:center; padding:4px; font-size:16px;">
-                   </div>
+                    </div>
                  </div>
+                 <button class="action-btn btn-orange" style="padding: 5px 10px; font-size: 0.8rem; width: auto;" onclick="saveBtnConfig(${i})">SET</button>
                  
                  <div style="display:flex; flex-direction:column; gap:2px; margin-left:5px;">
                    <div style="display:flex; gap:2px; align-items:center;">
@@ -716,7 +717,7 @@
         btnOffVals[index] = val;
         localStorage.setItem("btnOffVals", JSON.stringify(btnOffVals));
       }
-      sendBtnConfig(index);
+      // sendBtnConfig(index); // Removed for manual save
     }
     async function syncAllBtnConfigs() {
       if (!rxChar) return;
@@ -729,6 +730,10 @@
         await new Promise(r => setTimeout(r, 150));
       }
       log("Config Sync Complete");
+    }
+    function saveBtnConfig(index) {
+      sendBtnConfig(index);
+      alert(`Button ${index + 1} のON/OFF設定をデバイスに保存しました。`);
     }
     function sendBtnConfig(inIdx) {
       if (!rxChar) return;
