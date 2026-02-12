@@ -107,9 +107,10 @@ https://gok555.github.io/M5ATOM-S3-CAN-KEY-PAD/
     * ディスプレイにIPアドレスや接続ステータス、送信中のCAN IDなどを表示します。
 
 ### 2. CAN通信モジュール
-* **M5Stack ATOM CAN BASE  (CSIS3050G)**
+* **M5Stack ATOM CAN BASE  (CAIS3050G)**
     * 絶縁型（CA-IS3050G搭載）です。
     * DC-DC絶縁電源を内蔵しており、車両からのノイズ干渉を防ぎ安全に通信できます。
+    * K MATERはGROVE　PORT A
       
 
 ### 3. 配線・その他
