@@ -1,20 +1,72 @@
 import M5
 from M5 import *
 import time
-from unit import CANUnit
+from unit import CANUnit, KMeterUnit
+from hardware import I2C, Pin
 import bluetooth
+import struct
 from micropython import const
-# Version 1.0 (Official Release)
-#
-# --- CAN ID 変更方法 ---
-# 送信CAN IDを別のアドレスに変更したい場合は、以下の `can_tx_id` の値を変更してください。
-# 表記は16進数(0x...)です。
-# 例: 0x100 -> 0x200
+from esp32 import NVS
+# ==========================================
+# ATOM S3 + ATOM CAN Base (Full BLE Ver)
+# Ver 3.19: Fixed 1Mbps Baudrate
+# ==========================================
+# --- Configuration for ATOM CAN Base ---
+TX_PIN = 6
+RX_PIN = 5
+# ---------------------------------------
 can_tx_id = 0x100
-DEVICE_NAME = "M5AtomS3_CAN"
+k_meter_id = 0x200
+nvs = None
+def init_nvs():
+    global nvs, can_tx_id, k_meter_id
+    try:
+        nvs = NVS("can_app")
+        print("NVS Init OK (can_app)")
+    except:
+        try:
+            nvs = NVS("m5_config") # Fallback namespace
+            print("NVS Init OK (m5_config)")
+        except:
+            nvs = None
+            print("NVS Init Failed")
+            
+    print(">>> FIRMWARE UPDATED: VER 3.19 (FIXED 1Mbps) <<<")
+    
+    if nvs:
+        try:
+            can_tx_id = nvs.get_i32("my_id")
+            print("Loaded ID:", hex(can_tx_id))
+        except OSError: pass
+        try:
+            k_meter_id = nvs.get_i32("k_meter_id")
+            print("Loaded KID:", hex(k_meter_id))
+        except OSError: pass
+def load_btn_nvs():
+    if not nvs: return
+    try:
+        updated = False
+        for i in range(8):
+            key_off = f"btn{i+1}_off"
+            try:
+                # Load OFF value and set as initial state
+                off_val = nvs.get_i32(key_off)
+                can_state[i] = off_val & 0xFF
+                updated = True
+            except OSError:
+                pass # Key not found, keep default 0
+        if updated:
+            print("Loaded NVS Btn Config")
+    except Exception as e:
+        print("NVS Load Err:", e)
+DEVICE_NAME = "M5AtomS3_CAN_Base"
 FIFO = 0
 can_state = bytearray(8)
 can_error = False
+# --- Global Display Variables ---
+last_rx_id = 0
+last_temp_disp = "0"
+rx_count = 0  
 UART_UUID = bluetooth.UUID("6e400001-b5a3-f393-e0a9-e50e24dcca9e")
 UART_TX   = bluetooth.UUID("6e400003-b5a3-f393-e0a9-e50e24dcca9e")
 UART_RX   = bluetooth.UUID("6e400002-b5a3-f393-e0a9-e50e24dcca9e")
@@ -40,181 +92,272 @@ class BLEUART:
         name_bytes = name.encode()
         return b'\x02\x01\x06' + bytes([len(name_bytes)+1, 0x09]) + name_bytes
     def _advertise(self):
-        try:
-            self._ble.gap_advertise(100_000, self._adv_payload)
-            print("BLE advertising...")
-        except:
-            pass
+        try: self._ble.gap_advertise(100_000, self._adv_payload)
+        except: pass
     def _irq(self, event, data):
         if event == _IRQ_CENTRAL_CONNECT:
             conn_handle, _, _ = data
             self._connections.add(conn_handle)
-            print("BLE connected. Handle:", conn_handle)
             time.sleep(0.5)
             self.send_state_sync()
+            time.sleep(0.1)
+            self.send_config()
         elif event == _IRQ_CENTRAL_DISCONNECT:
             conn_handle, _, _ = data
             if conn_handle in self._connections:
                 self._connections.remove(conn_handle)
-            print("BLE disconnected")
             self._advertise()
         elif event == _IRQ_GATTS_WRITE:
-            if self._rx_cb:
-                self._rx_cb(self._ble.gatts_read(self._rx))
+            if self._rx_cb: self._rx_cb(self._ble.gatts_read(self._rx))
     def send(self, data):
         for conn_handle in self._connections:
-            try:
-                # Debug output
-                # print("BLE Sending to:", conn_handle, data)
-                self._ble.gatts_notify(conn_handle, self._tx, data)
-                print("BLE TX OK")
-            except Exception as e:
-                print("BLE TX ERR:", e)
+            try: self._ble.gatts_notify(conn_handle, self._tx, data)
+            except: pass
     def send_state_sync(self):
-        msg = "STATE=" + ",".join(str(b) for b in can_state)
-        print("Preparing Sync Msg:", msg)
-        self.send(msg.encode())
+        self.send(("STATE=" + ",".join(str(b) for b in can_state)).encode())
+        
     def send_status(self, is_err):
-        st = "CAN_ERR" if is_err else "CAN_OK"
-        msg = f"STATUS={st}"
-        # print("Heartbeat:", msg)
-        self.send(msg.encode())
+        self.send((f"STATUS={'CAN_ERR' if is_err else 'CAN_OK'}").encode())
+        
+    def send_config(self):
+        self.send((f"ID={hex(can_tx_id)}").encode())
+        time.sleep(0.05)
+        self.send((f"KID={hex(k_meter_id)}").encode())
     def on_rx(self, cb):
         self._rx_cb = cb
 def on_ble_rx(data):
+    global can_state, can_tx_id
     try:
+        # Clean Logs (Removed verbose Hex/Parts)
         cmd = data.decode().strip()
-        print("BLE RX:", cmd)
+        print("RX:", cmd) 
+        
         updated = False
-        if '=' in cmd: 
+        
+        # --- FIXED LOGIC ORDER (Ver 3.16/3.17) ---
+        if cmd == "GETCONFIG":
+            uart.send_config()
+            
+        elif cmd.startswith("CFGBTN="):
+            # Format: CFGBTN=idx,on_val,off_val (Decimal)
+            try:
+                parts = cmd.split('=')[1].split(',')
+                if len(parts) == 3:
+                    idx = int(parts[0])
+                    on_v = int(parts[1])
+                    off_v = int(parts[2])
+                    
+                    if 0 <= idx < 8:
+                        # 1. Priority: Update RAM immediately
+                        # If current state matches ON value, maintain it (don't reset to OFF)
+                        if can_state[idx] == (on_v & 0xFF):
+                             pass 
+                        else:
+                             # Otherwise, apply the OFF value (default/updated)
+                             new_val = off_v & 0xFF
+                             if can_state[idx] != new_val:
+                                  can_state[idx] = new_val
+                                  updated = True
+                         
+                        # 2. Try Save to NVS
+                        if nvs:
+                            try:
+                                nvs.set_i32(f"btn{idx+1}_on", on_v)
+                                nvs.set_i32(f"btn{idx+1}_off", off_v)
+                                nvs.commit()
+                            except: pass
+            except: pass
+        
+        elif '=' in cmd: 
             parts = cmd.split('=')
-            # Check for ID command
             if parts[0] == "ID":
                 try:
-                    new_id = int(parts[1], 16) # Parse as Hex
+                    new_id = int(parts[1], 16)
                     global can_tx_id
                     can_tx_id = new_id
-                    print("New CAN ID:", hex(can_tx_id))
-                    # Optional: Send sync to confirm?
-                except:
-                    print("Invalid ID Fmt")
+                    if nvs: nvs.set_i32("my_id", new_id); nvs.commit()
+                except: pass
+            elif parts[0] == "KID":
+                try:
+                    new_kid = int(parts[1], 16)
+                    global k_meter_id
+                    k_meter_id = new_kid
+                    if nvs: nvs.set_i32("k_meter_id", new_kid); nvs.commit()
+                except: pass
             elif len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                # Direct idx=val format
                 idx = int(parts[0]) - 1
                 val = int(parts[1])
                 if 0 <= idx < 8:
-                    # Version 2.7: Allow arbitrary byte value
                     if can_state[idx] != val:
-                        can_state[idx] = val & 0xFF # Ensure byte range
+                        can_state[idx] = val & 0xFF
                         updated = True
         elif cmd.isdigit(): 
             idx = int(cmd) - 1
             if 0 <= idx < 8:
                 can_state[idx] ^= 1
                 updated = True
+            
         if updated:
-            print("CAN TX:", list(can_state))
             can.send(id=can_tx_id, data=can_state)
             uart.send_state_sync()
     except Exception as e:
-        print("RX ERR:", e)
+        print("BLE RX Err:", e)
+# ---------------------------------------------
+# Main Setup
+# ---------------------------------------------
 M5.begin()
-print("BOOT Ver 2.6 (Selectable ID)")
-# Changed baudrate to 1000000 (1Mbps)
-can = CANUnit(id=0, port=(1,2), mode=CANUnit.NORMAL, baudrate=1000000)
-print("CAN OK")
+init_nvs()
+load_btn_nvs() # Load Initial Values
+# Fixed Baudrate
+detected_rate = 1000000
+print("Fixed Baudrate: 1000000")
+try:
+    can = CANUnit(id=0, port=(TX_PIN, RX_PIN), mode=CANUnit.NORMAL, baudrate=detected_rate)
+    try:
+        if hasattr(can, 'setfilter'):
+            can.setfilter(0, CANUnit.FILTER_RAW_SINGLE, [0, 0])
+        elif hasattr(can, 'set_filter'):
+            can.set_filter(0, 0, 0)
+    except:
+        pass
+    
+    # --- Startup Broadcast ---
+    print("Startup Broadcast")
+    can.send(id=can_tx_id, data=can_state)
+except Exception as e:
+    print("CAN Init Err:", e)
 ble = bluetooth.BLE()
 uart = BLEUART(ble)
 uart.on_rx(on_ble_rx)
-uart.on_rx(on_ble_rx)
+# --- K-Meter Init ---
+kmeter_addr = 0x66
+kmeter_found = False
+try:
+    i2c0 = I2C(0, scl=Pin(1), sda=Pin(2), freq=100000)
+    time.sleep(0.5) 
+    devs = i2c0.scan()
+    if kmeter_addr in devs:
+        kmeter_found = True
+except Exception as e:
+    pass
 M5.Display.clear()
-M5.Display.setTextSize(2)
-M5.Display.setTextColor(0xFFFFFF)
-M5.Display.print("READY\n")
-print("READY")
+time.sleep(0.5)
 last_display_update = 0
-DISPLAY_INTERVAL = 500
+DISPLAY_INTERVAL = 200
 def update_lcd():
-    # Use fillScreen instead of clear to avoid issues
-    M5.Display.clear()
-    M5.Display.setCursor(0, 0)
     M5.Display.setTextSize(2)
     
-    # CAN Status -> GREEN (0x07E0)
+    # 1. CAN Status
+    M5.Display.setCursor(0, 0)
     if can_error:
-        M5.Display.setTextColor(0xF800, 0) # RED
-        M5.Display.print("CAN: ERR\n")
+        M5.Display.setTextColor(0xF800, 0x0000)
+        M5.Display.print("CAN: ERR  ")
     else:
-        M5.Display.setTextColor(0x07E0, 0) # GREEN
-        M5.Display.print("CAN: OK \n")
+        M5.Display.setTextColor(0x07FF, 0x0000) 
+        M5.Display.print("CAN: OK   ")
         
-    # BLE Status -> YELLOW (0xFFE0) 
+    # 2. BLE Status
+    M5.Display.setCursor(0, 20)
     if len(uart._connections) > 0:
-        M5.Display.setTextColor(0xFFE0, 0) # YELLOW
-        M5.Display.print("BLE: ON \n")
+        M5.Display.setTextColor(0xFFE0, 0x0000)
+        M5.Display.print("BLE: ON   ")
     else:
-        M5.Display.setTextColor(0x7BEF, 0) # GREY
-        M5.Display.print("BLE: -- \n")
+        M5.Display.setTextColor(0x07FF, 0x0000)
+        M5.Display.print("BLE: --   ")
         
-    # ID -> WHITE (0xFFFF)
-    M5.Display.setTextColor(0xFFFF, 0) # WHITE
-    M5.Display.print(f"ID:{hex(can_tx_id)}\n")
+    # 3. PAD (Was TX ID)
+    M5.Display.setCursor(0, 40)
+    M5.Display.setTextColor(0xFFFF, 0x0000)
+    # Changed from "TX ID" to "PAD"
+    M5.Display.print(f"PAD:{can_tx_id:X}    ")
+    
+    # 4. KID (Temp ID)
+    M5.Display.setCursor(0, 60)
+    M5.Display.setTextColor(0xFFFF, 0x0000) 
+    M5.Display.print(f"KID:{k_meter_id:X}    ")
+    # 5. Temp
+    M5.Display.setCursor(0, 80)
+    M5.Display.setTextColor(0x07E0, 0x0000)
+    if not kmeter_found:
+        if last_temp_disp != "0" and last_temp_disp != "ERR":
+             M5.Display.print(f"Temp:{last_temp_disp}      ")
+        else:
+             M5.Display.print("Temp: NO-I2C    ")
+    else:
+        M5.Display.print(f"Temp:{last_temp_disp}C    ")
+    # 6. Baudrate (Fixed)
+    M5.Display.setCursor(0, 100)
+    M5.Display.setTextColor(0x07FF, 0x0000) 
+    M5.Display.print("1M (Fixed)")
 last_can_send_time = 0
-CAN_SEND_INTERVAL = 200  # 5Hz
+CAN_SEND_INTERVAL = 200  
 last_ble_sync_time = 0
-BLE_SYNC_INTERVAL = 1000 # 1Hz (Heartbeat for UI)
+BLE_SYNC_INTERVAL = 1000 
+last_temp_send_time = 100 
+TEMP_SEND_INTERVAL = 200 
 while True:
     M5.update()
-    # Cyclic CAN Transmission (Heartbeat)
     now = time.ticks_ms()
+    
+    if BtnA.wasPressed():
+        try:
+            test_data = bytearray([0xA1, 0xB2, 0xC3, 0xD4, 0xE5, 0xF6, 0x07, 0x08])
+            can.send(id=0x200, data=test_data)
+        except:
+            pass
+    # --- Temp/TX Loop ---
+    if time.ticks_diff(now, last_temp_send_time) > TEMP_SEND_INTERVAL:
+        if kmeter_found:
+            try:
+                data = i2c0.readfrom_mem(kmeter_addr, 0x00, 4)
+                val_int = struct.unpack('<i', data)[0] 
+                temp_val = val_int / 100.0
+                t_int = int(temp_val)
+                sign = 1 if temp_val >= 0 else 0
+                abs_val = abs(t_int)
+                sensor_data = bytearray([0x01, sign, (abs_val >> 8) & 0xFF, abs_val & 0xFF, 0,0,0,0])
+                
+                last_temp_disp = str(t_int)
+                
+                try: can.send(id=k_meter_id, data=sensor_data)
+                except: pass
+                
+                try: uart.send(f"TEMP={t_int}".encode())
+                except: pass
+            except: pass
+        last_temp_send_time = now
     if time.ticks_diff(now, last_can_send_time) > CAN_SEND_INTERVAL:
         try:
             can.send(id=can_tx_id, data=can_state)
             can_error = False
-        except Exception as e:
-            print("CAN Send Err:", e)
+        except:
             can_error = True
         last_can_send_time = now
-    # Cyclic BLE Sync (UI Refresh Heartbeat)
     if time.ticks_diff(now, last_ble_sync_time) > BLE_SYNC_INTERVAL:
-        # Prevent "No change" spam logs if you prefer, but for now we keep it to be sure
-        # Prevent "No change" spam logs if you prefer, but for now we keep it to be sure
-        uart.send_state_sync() # Button States
-        uart.send_status(can_error) # Heartbeat & CAN Status
-        uart.send_status(can_error) # Heartbeat & CAN Status
+        uart.send_state_sync()
+        uart.send_status(can_error)
         last_ble_sync_time = now
-    # LCD Update
-    if time.ticks_diff(now, last_display_update) > DISPLAY_INTERVAL:
-        try:
-            update_lcd()
-        except Exception as e:
-            print("LCD Err:", e)
-        last_display_update = now
-    
-    if can.any(FIFO):
+    # --- RX Loop ---
+    if can and can.any(FIFO):
         try:
             msg = can.recv(FIFO)
             if msg:
                 can_id, is_ext, rtr, dlc, rx_data = msg
-                # 外部からの更新 (Current TX ID) を監視
-                if can_id == can_tx_id:
-                    print(">> CAN RX MATCH", hex(can_id))
-                    
-                    if rx_data and len(rx_data) >= 8:
-                        changed = False
-                        for i in range(8):
-                            new_val = 1 if rx_data[i] > 0 else 0
-                            if can_state[i] != new_val:
-                                can_state[i] = new_val
-                                changed = True
-                        
-                        if changed:
-                            print("State Changed -> Syncing")
-                            uart.send_state_sync()
-                        else:
-                            # デバッグ用：変わってなくても受信したことは表示
-                            # print("No change in state")
-                            pass
-        except Exception as e:
-            print("CAN Logic Err:", e)
-            
+                last_rx_id = can_id
+                rx_count += 1
+                
+                if dlc >= 4 and not kmeter_found: 
+                    t_high = rx_data[2]
+                    t_low = rx_data[3]
+                    val = (t_high << 8) | t_low
+                    if rx_data[1] == 0: val = -val
+                    last_temp_disp = str(val)
+        except:
+            pass
+    # --- LCD Update ---
+    if time.ticks_diff(now, last_display_update) > DISPLAY_INTERVAL:
+        update_lcd()
+        last_display_update = now
+    
     time.sleep(0.01)
