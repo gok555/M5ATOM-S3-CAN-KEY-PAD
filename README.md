@@ -107,13 +107,12 @@ https://gok555.github.io/M5ATOM-S3-CAN-KEY-PAD/
     * ディスプレイにIPアドレスや接続ステータス、送信中のCAN IDなどを表示します。
 
 ### 2. CAN通信モジュール
-* **M5Stack Unit CAN Iso v2 (SKU: U085)**
-    * 絶縁型CANトランシーバーユニット（CA-IS3050G搭載）です。
+* **M5Stack ATOM CAN BASE  (CSIS3050G)**
+    * 絶縁型（CA-IS3050G搭載）です。
     * DC-DC絶縁電源を内蔵しており、車両からのノイズ干渉を防ぎ安全に通信できます。
-    * ATOM S3のGroveポート(Port A)に接続して使用します。
+      
 
 ### 3. 配線・その他
-* **Groveケーブル:** ATOM S3とCAN Unitの接続用
 * **CANバス接続ケーブル:** 車両のOBDIIコネクタやCANライン(CAN High / CAN Low)への接続用
 * **USB Type-Cケーブル:** 給電および書き込み用
 
