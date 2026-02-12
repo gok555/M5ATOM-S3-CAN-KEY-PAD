@@ -1,4 +1,4 @@
-<!-- Version: 4.8.1 (Manual Save) -->
+<!-- Version: 4.9.0 (Sync/Paste Fix) -->
 <!DOCTYPE html>
 <html>
 <head>
@@ -398,6 +398,22 @@
       border: 1px solid #444;
       box-sizing: border-box;
     }
+    /* --- Sync Overlay Style --- */
+    #sync-overlay {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 5;
+      justify-content: center;
+      align-items: center;
+      color: #00ff00;
+      font-weight: bold;
+      font-size: 1.2rem;
+    }
   </style>
 </head>
 <body>
@@ -422,8 +438,10 @@
     <div id="connect-overlay">
       <!-- Changed to call handleStartConnect() for composite action -->
       <button id="start-btn" onclick="handleStartConnect()">CONNECT<br>START</button>
-      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.8.1 (Manual Save)</div>
+      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 4.9.0 (Sync/Paste Fix)</div>
     </div>
+    <!-- NEW SYNC OVERLAY -->
+    <div id="sync-overlay">⚙️ Syncing...</div>
     <div id="keypad"></div>
   </div>
   <!-- SETTINGS VIEW -->
@@ -517,11 +535,26 @@
         <input type="file" id="import-file" style="display:none" accept=".json" onchange="handleFileSelect(this)">
       </div>
       <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
-        Ver 4.8.1 (Manual Save)<br>
+        Ver 4.9.0 (Sync/Paste Fix)<br>
         M5Atom S3 CAN
       </div>
     </div>
     <pre id="log">Logs...</pre>
+  </div>
+  <!-- Icon Picker Overlay -->
+  <div id="icon-picker-overlay"
+    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:20; justify-content:center; align-items:center;">
+    <div style="background:#222; padding:20px; border-radius:10px; border:1px solid #555; width:80%; max-width:300px;">
+      <div style="text-align:center; margin-bottom:15px; font-weight:bold;">Select Icon</div>
+      <div id="icon-picker-grid" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:10px;">
+        <!-- Populated via JS -->
+      </div>
+      <div style="margin-top:15px; text-align:center;">
+        <div style="margin-top:15px; text-align:center;">
+          <button class="action-btn btn-gray" onclick="closeIconPicker()">Cancel</button>
+        </div>
+      </div>
+    </div>
   </div>
   <script>
     const SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
@@ -586,10 +619,7 @@
     // --- Watchdog ---
     let watchdogTimer = null;
     const WATCHDOG_TIMEOUT = 3500; // 3.5s (Device sends every 1s)
-    // --- CAN ID 螟画峩譁ｹ豕・---
-    // Web繧｢繝励Μ縺ｮ繝・ヵ繧ｩ繝ｫ繝・AN ID繧貞､画峩縺励◆縺・ｴ蜷医・縲∽ｻ･荳九・ `canIdVal` 縺ｮ蛟､繧貞､画峩縺励※縺上□縺輔＞縲・
-    // 陦ｨ險倥・16騾ｲ謨ｰ縺九ｉ "0x" 繧帝勁縺・◆譁・ｭ怜・縺ｧ縺吶・
-    // 例: "100" -> "200"
+    // --- CAN ID Logic ---
     let canIdVal = localStorage.getItem("canIdVal") || "100";
     let kMeterIdVal = localStorage.getItem("kMeterIdVal") || "200";
     // Set Init Values to Inputs
@@ -719,8 +749,11 @@
       }
       // sendBtnConfig(index); // Removed for manual save
     }
+    /* --- SYNC FUNCTION MODIFIED --- */
     async function syncAllBtnConfigs() {
       if (!rxChar) return;
+      const overlay = document.getElementById("sync-overlay");
+      if (overlay) overlay.style.display = "flex";
       log("Syncing Config to Device...");
       for (let i = 0; i < 8; i++) {
         sendBtnConfig(i);
@@ -729,6 +762,7 @@
         sendState(i + 1, btnStates[i]);
         await new Promise(r => setTimeout(r, 150));
       }
+      if (overlay) overlay.style.display = "none";
       log("Config Sync Complete");
     }
     function saveBtnConfig(index) {
@@ -1547,8 +1581,15 @@
         container.appendChild(b);
       }
     }
-    // Global Context Menu Block
-    window.addEventListener('contextmenu', (e) => { e.preventDefault(); return false; }, { capture: true });
+    // Global Context Menu Block (Fixed for Paste)
+    window.addEventListener('contextmenu', (e) => {
+      // Allow context menu for Inputs/Textareas
+      if (["INPUT", "TEXTAREA"].includes(e.target.tagName)) {
+        return true;
+      }
+      e.preventDefault();
+      return false;
+    }, { capture: true });
     // Initial Render
     renderKeypadGrid();
     /* --- Feedback Logic (Ver 3.1) --- */
@@ -1653,19 +1694,5 @@
       }
     }
   </script>
-  <!-- Icon Picker Overlay -->
-  <div id="icon-picker-overlay"
-    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:20; justify-content:center; align-items:center;">
-    <div style="background:#222; padding:20px; border-radius:10px; border:1px solid #555; width:80%; max-width:300px;">
-      <div style="text-align:center; margin-bottom:15px; font-weight:bold;">Select Icon</div>
-      <div id="icon-picker-grid" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:10px;">
-        <!-- Populated via JS -->
-      </div>
-      <div style="margin-top:15px; text-align:center;">
-        <div style="margin-top:15px; text-align:center;">
-          <button class="action-btn btn-gray" onclick="closeIconPicker()">Cancel</button>
-        </div>
-      </div>
-    </div>
 </body>
 </html>
