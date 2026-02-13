@@ -440,7 +440,7 @@
     </div>
     <div id="connect-overlay">
       <button id="start-btn" onclick="handleStartConnect()">CONNECT<br>START</button>
-      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 5.0.1 (Fix: Keypad Render)</div>
+      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 5.0.2 (Fix: Voice OFF)</div>
     </div>
     <div id="sync-overlay">⚙️ Syncing...</div>
     <div id="keypad"></div>
@@ -523,7 +523,7 @@
         <input type="file" id="import-file" style="display:none" accept=".json" onchange="handleFileSelect(this)">
       </div>
       <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
-        Ver 5.0.1 (Fix: Keypad Render)<br>
+        Ver 5.0.2 (Fix: Voice OFF)<br>
         M5Atom S3 CAN
       </div>
     </div>
@@ -1385,7 +1385,7 @@
     /* --- Import / Export Logic --- */
     function exportConfig() {
       const config = {
-        version: "5.0.1",
+        version: "5.0.2",
         timestamp: new Date().toISOString(),
         btnLabels: btnLabels,
         btnModes: btnModes,
@@ -1574,7 +1574,7 @@
     }, { capture: true });
     // Initial Render
     renderConfigList();
-    renderKeypadGrid(); // ★★★ ADDED FIX ★★★
+    renderKeypadGrid(); // Fix: Ensure keypad renders on load
     // Init Status (Show Overlay)
     updateStatus(false);
     function updateMainSoundIcon() {
@@ -1607,7 +1607,7 @@
     }
 
     /* =========================================
-       VOICE CONTROL ADD-ON (Ver 5.0.0 Integrated)
+       VOICE CONTROL ADD-ON (Ver 5.0.2 Integrated)
        ========================================= */
     const synth = window.speechSynthesis;
     function speakVoice(text) {
@@ -1640,7 +1640,7 @@
           
           if (cleanVoice.includes(cleanLabel) && cleanLabel.length > 0) {
             matched = true;
-            handleVoiceCommand(index);
+            handleVoiceCommand(index, transcript); // Pass transcript to check keywords
           }
         });
       };
@@ -1660,7 +1660,7 @@
       };
     }
 
-    function handleVoiceCommand(index) {
+    function handleVoiceCommand(index, transcript) {
       const btnNum = index + 1;
       const currentState = btnStates[index];
       const label = btnLabels[index];
@@ -1679,14 +1679,33 @@
         return;
       }
 
-      // C. Toggle Logic with Status Check
+      // C. Toggle Logic with OFF Keyword Check
+      // Check for OFF keywords in the spoken text
+      const isOffCommand = transcript.includes("オフ") || 
+                           transcript.includes("停止") || 
+                           transcript.includes("切") ||
+                           transcript.toLowerCase().includes("off");
+
       if (currentState) {
-        // Already ON
-        speakVoice(label + "は、既にオンです");
+        // Currently ON
+        if (isOffCommand) {
+           // User wants OFF -> Turn OFF
+           executeAction(btnNum);
+           speakVoice(label + "をオフにしました");
+        } else {
+           // User didn't say OFF -> Assume ON attempt
+           speakVoice(label + "は、既にオンです");
+        }
       } else {
-        // Turn ON
-        executeAction(btnNum);
-        speakVoice(label + "をオンにしました");
+        // Currently OFF
+        if (isOffCommand) {
+           // User wants OFF but it's already OFF
+           speakVoice(label + "は、既にオフです");
+        } else {
+           // User wants ON (or neutral) -> Turn ON
+           executeAction(btnNum);
+           speakVoice(label + "をオンにしました");
+        }
       }
     }
 
