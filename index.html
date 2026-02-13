@@ -440,7 +440,7 @@
     </div>
     <div id="connect-overlay">
       <button id="start-btn" onclick="handleStartConnect()">CONNECT<br>START</button>
-      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 5.0.0 (Voice Control)</div>
+      <div style="margin-top:20px; color:#666; font-size:0.8rem;">Ver 5.0.1 (Fix: Keypad Render)</div>
     </div>
     <div id="sync-overlay">⚙️ Syncing...</div>
     <div id="keypad"></div>
@@ -523,7 +523,7 @@
         <input type="file" id="import-file" style="display:none" accept=".json" onchange="handleFileSelect(this)">
       </div>
       <div style="color: #666; font-size: 0.8rem; text-align: center; margin-top: 10px;">
-        Ver 5.0.0 (Voice Control)<br>
+        Ver 5.0.1 (Fix: Keypad Render)<br>
         M5Atom S3 CAN
       </div>
     </div>
@@ -1385,7 +1385,7 @@
     /* --- Import / Export Logic --- */
     function exportConfig() {
       const config = {
-        version: "5.0.0",
+        version: "5.0.1",
         timestamp: new Date().toISOString(),
         btnLabels: btnLabels,
         btnModes: btnModes,
@@ -1574,6 +1574,7 @@
     }, { capture: true });
     // Initial Render
     renderConfigList();
+    renderKeypadGrid(); // ★★★ ADDED FIX ★★★
     // Init Status (Show Overlay)
     updateStatus(false);
     function updateMainSoundIcon() {
